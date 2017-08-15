@@ -45,13 +45,13 @@ import "C"
 
 const (
 	nBitsForKeypair = 2048
+	repoRoot = "./repo"
 )
 
 func main() {
 }
 
 func openOrCreateRepo(ctx context.Context) (repo.Repo, error) {
-	repoRoot := "./repo"
 	r, err := fsrepo.Open(repoRoot)
 
 	if err != nil {
@@ -115,6 +115,7 @@ func go_ipfs_cache_start() {
 
 	printSwarmAddrs(g.node)
 
+	//load_db(g.ctx, g.node)
 	g.db = make(GenericMap)
 
 	//s, err := coreunix.Add(g.node, bytes.NewBufferString("halusky"))
@@ -132,6 +133,57 @@ func go_ipfs_cache_start() {
 
 	//<-ctx.Done()
 }
+
+//func load_db(ctx context.Context, n *core.IpfsNode) (GenericMap, error) {
+//	pid, err := peer.IDFromPrivateKey(g.node.PrivateKey)
+//
+//	fmt.Println("aaa 1");
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	//p, err := path.ParseCidToPath(pid.Pretty())
+//	//if err != nil {
+//	//	return nil, err
+//	//}
+//
+//	//p := path.Path("/ipns/" + pid.Pretty());
+//	go func(){
+//		p := path.Path("/ipns/" + pid.Pretty());
+//
+//		fmt.Println("aaa 2 ipns: ", pid.Pretty());
+//		node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
+//		if err != nil {
+//			fmt.Println("aaa 2 err ", err);
+//			return
+//		}
+//
+//		fmt.Println("aaa 3 resolved to: ", node.Cid(), " ", node.Cid().String());
+//		//read, err := coreunix.Cat(ctx, n, path.FromCid(node.Cid()).String())
+//		//read, err := coreunix.Cat(ctx, n, node.Cid().String())
+//
+//		//fmt.Printf("aaaaaaa %q\n", read);
+//	}()
+//
+//
+//
+//
+//	//p := path.Path(pid.Pretty());
+//
+//	//fmt.Println("aaa 2 ", pid.Pretty());
+//	//node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
+//	//if err != nil {
+//	//	fmt.Println("aaa 2 err ", err);
+//	//	return nil, err
+//	//}
+//
+//	//fmt.Println("aaa 3");
+//	//read, err := coreunix.Cat(ctx, n, path.FromCid(node.Cid()).String())
+//
+//	//fmt.Printf("aaaaaaa %q\n", read);
+//
+//	return make(GenericMap), nil
+//}
 
 func query_to_map(p *C.struct_query_view) interface {} {
 	if p.str_size != 0 {
