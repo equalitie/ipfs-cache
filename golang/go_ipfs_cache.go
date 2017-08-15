@@ -13,17 +13,21 @@ import (
 	"unsafe"
 	"reflect"
 	"encoding/json"
+	"time"
 	core "github.com/ipfs/go-ipfs/core"
 	repo "github.com/ipfs/go-ipfs/repo"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	config "github.com/ipfs/go-ipfs/repo/config"
+	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/core/coreunix"
+
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
 // #cgo CFLAGS: -DIN_GO=1
 //#include <stdlib.h>
 //#include <stddef.h>
-//#include "../src/data_view_struct.h"
+//#include "../src/query_view_struct.h"
 //
 //// Don't export these functions into C or we'll get "unused function" warnings.
 //// (Or errors saying functions are defined more than once if the're not static)
@@ -33,7 +37,7 @@ import (
 //{
 //    ((void(*)(char*, size_t, void*)) func)(data, size, arg);
 //}
-//static struct data_view* get_nth(struct data_view* dv, size_t n) {
+//static struct query_view* get_nth(struct query_view* dv, size_t n) {
 //    return &dv[n];
 //}
 //#endif // if IN_GO
@@ -86,7 +90,7 @@ type GenericMap map[string]interface{}
 type Cache struct {
 	node *core.IpfsNode
 	ctx context.Context
-	pages GenericMap
+	db GenericMap
 }
 
 var g Cache
@@ -111,7 +115,7 @@ func go_ipfs_cache_start() {
 
 	printSwarmAddrs(g.node)
 
-	g.pages = make(GenericMap)
+	g.db = make(GenericMap)
 
 	//s, err := coreunix.Add(g.node, bytes.NewBufferString("halusky"))
 	//fmt.Println("Added ", s)
@@ -129,7 +133,7 @@ func go_ipfs_cache_start() {
 	//<-ctx.Done()
 }
 
-func data_to_map(p *C.struct_data_view) interface {} {
+func query_to_map(p *C.struct_query_view) interface {} {
 	if p.str_size != 0 {
 		// Either string or entry.
 		if p.child_count == 0 {
@@ -146,7 +150,7 @@ func data_to_map(p *C.struct_data_view) interface {} {
 				panic(fmt.Sprintf("Entry must have exactly one child"));
 			}
 			m := make(GenericMap);
-			m[name] = data_to_map(p.childs);
+			m[name] = query_to_map(p.childs);
 			return m
 		}
 	}
@@ -157,7 +161,7 @@ func data_to_map(p *C.struct_data_view) interface {} {
 
 	for i := 0; i < cnt; i++ {
 		ch := C.get_nth(p.childs, C.size_t(i))
-		mm := data_to_map(ch).(GenericMap)
+		mm := query_to_map(ch).(GenericMap)
 		for key, value := range mm {
 			m[key] = value
 		}
@@ -184,20 +188,55 @@ func update_db(db GenericMap, query GenericMap) {
 	}
 }
 
+// IMPORTANT: The returned value needs to be `free`d.
+//export go_ipfs_cache_ipns_id
+func go_ipfs_cache_ipns_id() *C.char {
+	pid, err := peer.IDFromPrivateKey(g.node.PrivateKey)
+
+	if err != nil {
+		return nil
+	}
+
+	cstr := C.CString(pid.Pretty())
+	return cstr
+}
+
+func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
+	path, err := path.ParseCidToPath(cid)
+
+	if err != nil {
+		return err
+	}
+
+	k := n.PrivateKey
+
+	// TODO: What should be the default timeout?
+	eol := time.Now().Add(3 * time.Minute)
+	err  = n.Namesys.PublishWithEOL(ctx, k, path, eol)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //export go_ipfs_cache_update_db
-func go_ipfs_cache_update_db(dv *C.struct_data_view,
+func go_ipfs_cache_update_db(dv *C.struct_query_view,
 	                         fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 
-	update_db(g.pages, data_to_map(dv).(GenericMap))
+	update_db(g.db, query_to_map(dv).(GenericMap))
 
-	msg, err := json.Marshal(g.pages)
-	s, err := coreunix.Add(g.node, bytes.NewReader(msg))
+	msg, err := json.Marshal(g.db)
+	cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
 
 	if err != nil {
 		fmt.Println("Error: failed to update db ", err)
 	}
 
-	cstr := C.CString(s);
-	C.execute_add_callback(fn, cstr, C.size_t(len(s)), fn_arg)
-	C.free(unsafe.Pointer(cstr));
+	publish(g.ctx, g.node, cid)
+
+	cstr := C.CString(cid)
+	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
+	C.free(unsafe.Pointer(cstr))
 }

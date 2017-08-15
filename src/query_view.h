@@ -1,15 +1,15 @@
 #pragma once
 
-#include <ipfs_cache/data.h>
-#include "data_view_struct.h"
+#include <ipfs_cache/query.h>
+#include "query_view_struct.h"
 
-// Data view is a C POD structure which contains the same information as the
-// Data structure but (since it's C POD) can be passed to the Go language
+// Query view is a C POD structure which contains the same information as the
+// Query structure but (since it's C POD) can be passed to the Go language
 // routines.
 namespace ipfs_cache {
 
 //// Debuging:
-//void print_data_view(data_view* dv, std::string pad) {
+//void print_query_view(query_view* dv, std::string pad) {
 //    using std::cout;
 //    using std::endl;
 //
@@ -18,66 +18,66 @@ namespace ipfs_cache {
 //    cout << pad << "child_cnt: " << dv->child_count << endl;
 //    for (size_t i = 0; i < dv->child_count; i++) {
 //        cout << pad << "  child " << i << endl;
-//        print_data_view(&dv->childs[i], pad + "    ");
+//        print_query_view(&dv->childs[i], pad + "    ");
 //    }
 //}
 
-// Creates the data_view structure according to `data`. The result is allocated
+// Creates the query_view structure according to `query`. The result is allocated
 // on the stack so it's not returned but instead it's applied to `f`.
 template<class F>
-void with_data_view(const Data& data, const F& f) {
+void with_query_view(const Query& query, const F& f) {
     enum class Type { string, entry, node };
 
     struct E {
         Type  type;
-        const void* data;
+        const void* query;
 
         E() {}
-        explicit E(const Data* in) {
+        explicit E(const Query* in) {
             if (auto s = boost::get<std::string>(in)) {
                 type = Type::string;
-                data = s;
+                query = s;
             }
             else if (auto e = boost::get<entry>(in)) {
                 type = Type::entry;
-                data = e;
+                query = e;
             }
             else if (auto n = boost::get<node>(in)) {
                 type = Type::node;
-                data = n;
+                query = n;
             }
             else { assert(0); }
         }
 
-        E(const std::pair<const std::string, Data>* e) {
+        E(const std::pair<const std::string, Query>* e) {
             type = Type::entry;
-            data = e;
+            query = e;
         }
 
         std::string* as_string() {
-            return type == Type::string ? (std::string*) data : nullptr;
+            return type == Type::string ? (std::string*) query : nullptr;
         }
         entry* as_entry() {
-            return type == Type::entry ? (entry*) data : nullptr;
+            return type == Type::entry ? (entry*) query : nullptr;
         }
         node* as_node() {
-            return type == Type::node ? (node*) data : nullptr;
+            return type == Type::node ? (node*) query : nullptr;
         }
     };
 
     struct D {
         E cur;
         bool is_set;
-        data_view* view;
+        query_view* view;
         D* next;
     };
 
     D* root   = (D*) alloca(sizeof(D));
 
     D* d      = root;
-    d->cur    = E(&data);
+    d->cur    = E(&query);
     d->is_set = false;
-    d->view   = (data_view*) alloca(sizeof(data_view));
+    d->view   = (query_view*) alloca(sizeof(query_view));
     d->next   = nullptr;
 
     while (d) {
@@ -98,7 +98,7 @@ void with_data_view(const Data& data, const F& f) {
             auto ch = (D*) alloca(sizeof(D));
             ch->cur    = E(&e->second);
             ch->is_set = false;
-            ch->view   = (data_view*) alloca(sizeof(data_view));
+            ch->view   = (query_view*) alloca(sizeof(query_view));
             ch->next   = d;
 
             d->view->str_size    = e->first.size();
@@ -109,7 +109,7 @@ void with_data_view(const Data& data, const F& f) {
             d = ch;
         }
         else if (auto n = d->cur.as_node()) {
-            auto child_views = (data_view*) alloca(n->size() * sizeof(data_view));
+            auto child_views = (query_view*) alloca(n->size() * sizeof(query_view));
 
             size_t k = 0;
             D* first = nullptr;

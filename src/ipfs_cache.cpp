@@ -4,7 +4,7 @@
 #include <go_ipfs_cache.h>
 
 #include "dispatch.h"
-#include "data_view.h"
+#include "query_view.h"
 
 using namespace std;
 using namespace ipfs_cache;
@@ -25,6 +25,13 @@ IpfsCache::IpfsCache(event_base* evbase)
     go_ipfs_cache_start();
 }
 
+string IpfsCache::ipns_id() const {
+    char* cid = go_ipfs_cache_ipns_id();
+    string ret(cid);
+    free(cid);
+    return ret;
+}
+
 void IpfsCache::update_db(const entry& e, std::function<void(std::string)> callback)
 {
     struct OnAdd {
@@ -34,9 +41,10 @@ void IpfsCache::update_db(const entry& e, std::function<void(std::string)> callb
         static void on_add(const char* data, size_t size, void* arg) {
             auto self = reinterpret_cast<OnAdd*>(arg);
             if (self->impl->was_destroyed) return;
-            auto cb = move(self->cb);
-            cb(string(data, data + size));
+            auto cb   = move(self->cb);
+            auto impl = move(self->impl);
             delete self;
+            cb(string(data, data + size));
         }
     };
 

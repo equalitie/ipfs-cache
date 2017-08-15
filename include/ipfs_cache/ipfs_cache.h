@@ -4,7 +4,7 @@
 #include <functional>
 #include <memory>
 
-#include <ipfs_cache/data.h>
+#include <ipfs_cache/query.h>
 
 namespace ipfs_cache {
 
@@ -17,7 +17,10 @@ public:
     IpfsCache(const IpfsCache&) = delete;
     IpfsCache& operator=(const IpfsCache&) = delete;
 
-    void update_db(const entry&, std::function<void(std::string)> callback);
+    // Returns the IPNS CID of the database.
+    std::string ipns_id() const;
+
+    void update_db(const entry& query, std::function<void(std::string)> callback);
 
     ~IpfsCache();
 

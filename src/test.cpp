@@ -39,6 +39,8 @@ int main()
 
         ic::IpfsCache ipfs(evbase);
 
+        cout << "Our IPNS ID is " << ipfs.ipns_id() << endl;
+
         auto q = ic::entry( "wikipedia.org"
                           , ic::make_node( ic::entry("key1", "value1")
                                          , ic::entry("key2", "value2") ));
