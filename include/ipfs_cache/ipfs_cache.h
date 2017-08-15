@@ -20,7 +20,9 @@ public:
     // Returns the IPNS CID of the database.
     std::string ipns_id() const;
 
-    void update_db(const entry& query, std::function<void(std::string)> callback);
+    void update_db(const entry& query, std::function<void(std::string)>);
+
+    void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
 
     ~IpfsCache();
 

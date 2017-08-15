@@ -48,11 +48,31 @@ void IpfsCache::update_db(const entry& e, std::function<void(std::string)> callb
         }
     };
 
-    with_data_view(e, [&](data_view* dv) {
+    with_query_view(e, [&](query_view* dv) {
         go_ipfs_cache_update_db( dv
                                , (void*) OnAdd::on_add
                                , (void*) new OnAdd{_impl, move(callback)});
     });
+}
+
+void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb) {
+    struct OnInsert {
+        shared_ptr<IpfsCacheImpl> impl;
+        function<void(string)> cb;
+
+        static void on_insert(const char* data, size_t size, void* arg) {
+            auto self = reinterpret_cast<OnInsert*>(arg);
+            if (self->impl->was_destroyed) return;
+            auto cb = move(self->cb);
+            auto impl = move(self->impl);
+            delete self;
+            cb(string(data, data + size)); // TODO: string_view?
+        }
+    };
+
+    go_ipfs_cache_insert_content( (void*) data, size
+                                , (void*) OnInsert::on_insert
+                                , (void*) new OnInsert{_impl, move(cb)} );
 }
 
 IpfsCache::~IpfsCache()

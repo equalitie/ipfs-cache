@@ -232,9 +232,30 @@ func go_ipfs_cache_update_db(dv *C.struct_query_view,
 
 	if err != nil {
 		fmt.Println("Error: failed to update db ", err)
+		C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
+		return
 	}
 
 	publish(g.ctx, g.node, cid)
+
+	cstr := C.CString(cid)
+	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
+	C.free(unsafe.Pointer(cstr))
+}
+
+//export go_ipfs_cache_insert_content
+func go_ipfs_cache_insert_content(
+		data unsafe.Pointer, size C.size_t,
+		fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+
+	msg := C.GoBytes(data, C.int(size))
+	cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
+
+	if err != nil {
+		fmt.Println("Error: failed to insert content ", err)
+		C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
+		return;
+	}
 
 	cstr := C.CString(cid)
 	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)

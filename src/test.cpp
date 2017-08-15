@@ -39,14 +39,17 @@ int main()
 
         ic::IpfsCache ipfs(evbase);
 
-        cout << "Our IPNS ID is " << ipfs.ipns_id() << endl;
+        string test_data = "My test content";
 
-        auto q = ic::entry( "wikipedia.org"
-                          , ic::make_node( ic::entry("key1", "value1")
-                                         , ic::entry("key2", "value2") ));
+        ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string cid) {
+            cout << "added " << cid << endl;
 
-        ipfs.update_db(q, [&ipfs](auto a) {
-            cout << "added " << a << endl;
+            auto q = ic::entry( "test_content.org"
+                              , ic::make_node(ic::entry("CID", cid)));
+
+            ipfs.update_db(q, [&ipfs](auto a) {
+                cout << "Updated DB at https://ipfs.io/ipns/" << ipfs.ipns_id() << endl;
+            });
         });
 
         cout << "Press Ctrl-C to exit." << endl;

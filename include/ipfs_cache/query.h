@@ -5,14 +5,14 @@
 
 namespace ipfs_cache {
 
-using Data = boost::make_recursive_variant
+using Query = boost::make_recursive_variant
                 < std::string
                 , std::pair<const std::string, boost::recursive_variant_>
                 , std::map<std::string, boost::recursive_variant_>
                 >::type;
 
-using entry = std::pair<const std::string, Data>;
-using node = std::map<std::string, Data>;
+using entry = std::pair<const std::string, Query>;
+using node = std::map<std::string, Query>;
 
 namespace impl {
     inline void make_node(node&) {}
