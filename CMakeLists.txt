@@ -6,7 +6,7 @@ project(ipfs-cache)
 find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
 find_package(Threads)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb -fsanitize=address")
 
 include_directories(
     "${Boost_INCLUDE_DIR}"

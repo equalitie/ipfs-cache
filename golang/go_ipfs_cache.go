@@ -108,6 +108,7 @@ type GenericMap map[string]interface{}
 type Cache struct {
 	node *core.IpfsNode
 	ctx context.Context
+	cancel context.CancelFunc
 	db GenericMap
 }
 
@@ -115,7 +116,7 @@ var g Cache
 
 //export go_ipfs_cache_start
 func go_ipfs_cache_start() bool {
-	g.ctx = context.Background()
+	g.ctx, g.cancel = context.WithCancel(context.Background())
 
 	r, err := openOrCreateRepo(g.ctx);
 
@@ -139,6 +140,11 @@ func go_ipfs_cache_start() bool {
 	if err != nil { g.db = make(GenericMap) }
 
 	return true
+}
+
+//export go_ipfs_cache_stop
+func go_ipfs_cache_stop() {
+	g.cancel()
 }
 
 func get_content(ctx context.Context, cid string) ([]byte, error) {
@@ -265,34 +271,43 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 func go_ipfs_cache_update_db(dv *C.struct_query_view,
 	                         fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 
+	fmt.Println("go_opfs_cache_update_db");
+
 	update_db(g.db, query_to_map(dv).(GenericMap))
 
-	msg, err := json.Marshal(g.db)
-	cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
+	msg, _ := json.Marshal(g.db)
 
-	if err != nil {
-		fmt.Println("Error: failed to update db ", err)
-		C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
-		return
-	}
+	go func() {
+		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
 
-	err = ioutil.WriteFile(dbFile, []byte(cid), 0644)
+		if err != nil {
+			fmt.Println("Error: failed to update db ", err)
+			C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
+			return
+		}
 
-	if err != nil {
-		fmt.Println("Error: writing db into a local file ", err)
-	}
+		err = ioutil.WriteFile(dbFile, []byte(cid), 0644)
 
-	publish(g.ctx, g.node, cid)
+		if err != nil {
+			fmt.Println("Error: writing db into a local file ", err)
+		}
 
-	cstr := C.CString(cid)
-	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
-	C.free(unsafe.Pointer(cstr))
+		fmt.Println("go_opfs_cache_update_db::publish");
+		publish(g.ctx, g.node, cid)
+
+		cstr := C.CString(cid)
+		defer C.free(unsafe.Pointer(cstr))
+
+		C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
+	}()
 }
 
 //export go_ipfs_cache_insert_content
 func go_ipfs_cache_insert_content(
 		data unsafe.Pointer, size C.size_t,
 		fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+
+	fmt.Println("go_opfs_cache_insert_content");
 
 	msg := C.GoBytes(data, C.int(size))
 	cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
@@ -304,6 +319,7 @@ func go_ipfs_cache_insert_content(
 	}
 
 	cstr := C.CString(cid)
+	defer C.free(unsafe.Pointer(cstr))
+
 	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
-	C.free(unsafe.Pointer(cstr))
 }

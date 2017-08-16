@@ -59,7 +59,8 @@ void IpfsCache::update_db(const entry& e, std::function<void(std::string)> callb
     });
 }
 
-void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb) {
+void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
+{
     struct OnInsert {
         shared_ptr<IpfsCacheImpl> impl;
         function<void(string)> cb;
@@ -81,5 +82,7 @@ void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(s
 
 IpfsCache::~IpfsCache()
 {
+    cout << "~" << endl;
     _impl->was_destroyed = true;
+    go_ipfs_cache_stop();
 }
