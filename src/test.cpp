@@ -34,7 +34,7 @@ int main()
     }
 
     // Evbase MUST outlive IpfsCache, so putting it in a scope.
-    {
+    try {
         namespace ic = ipfs_cache;
 
         ic::IpfsCache ipfs(evbase);
@@ -55,6 +55,7 @@ int main()
         cout << "Press Ctrl-C to exit." << endl;
         event_base_loop(evbase, 0);
     }
+    catch (...) {}
 
     event_base_free(evbase);
     event_free(signal_event);

@@ -22,7 +22,11 @@ struct ipfs_cache::IpfsCacheImpl {
 IpfsCache::IpfsCache(event_base* evbase)
     : _impl(make_shared<IpfsCacheImpl>(evbase))
 {
-    go_ipfs_cache_start();
+    bool started = go_ipfs_cache_start();
+
+    if (!started) {
+        throw std::runtime_error("Failed to start IPFS");
+    }
 }
 
 string IpfsCache::ipns_id() const {

@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"encoding/json"
 	"time"
+	"io"
 	"io/ioutil"
 	core "github.com/ipfs/go-ipfs/core"
 	repo "github.com/ipfs/go-ipfs/repo"
@@ -53,10 +54,25 @@ const (
 func main() {
 }
 
-func openOrCreateRepo(ctx context.Context) (repo.Repo, error) {
-	r, err := fsrepo.Open(repoRoot)
-
+func doesnt_exist_or_is_empty(path string) bool {
+	f, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return true
+		}
+		return false
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true
+	}
+	return false
+}
+
+func openOrCreateRepo(ctx context.Context) (repo.Repo, error) {
+	if doesnt_exist_or_is_empty(repoRoot) {
 		conf, err := config.Init(os.Stdout, nBitsForKeypair)
 
 		if err != nil {
@@ -68,7 +84,7 @@ func openOrCreateRepo(ctx context.Context) (repo.Repo, error) {
 		}
 	}
 
-	return r, nil
+	return fsrepo.Open(repoRoot)
 }
 
 func printSwarmAddrs(node *core.IpfsNode) {
@@ -98,13 +114,14 @@ type Cache struct {
 var g Cache
 
 //export go_ipfs_cache_start
-func go_ipfs_cache_start() {
+func go_ipfs_cache_start() bool {
 	g.ctx = context.Background()
 
 	r, err := openOrCreateRepo(g.ctx);
 
 	if err != nil {
 		fmt.Println("err", err);
+		return false
 	}
 
 	g.node, err = core.NewNode(g.ctx, &core.BuildCfg{
@@ -120,6 +137,8 @@ func go_ipfs_cache_start() {
 	g.db, err = load_db(g.ctx)
 
 	if err != nil { g.db = make(GenericMap) }
+
+	return true
 }
 
 func get_content(ctx context.Context, cid string) ([]byte, error) {
