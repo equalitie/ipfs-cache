@@ -39,12 +39,12 @@ int main()
 
         ic::IpfsCache ipfs(evbase);
 
-        string test_data = "My test content";
+        string test_data = "My test content2";
 
         ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string cid) {
             cout << "added " << cid << endl;
 
-            auto q = ic::entry( "test_content.org"
+            auto q = ic::entry( "test_content2.org"
                               , ic::make_node(ic::entry("CID", cid)));
 
             ipfs.update_db(q, [&ipfs](auto a) {

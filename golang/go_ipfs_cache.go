@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"encoding/json"
 	"time"
+	"io/ioutil"
 	core "github.com/ipfs/go-ipfs/core"
 	repo "github.com/ipfs/go-ipfs/repo"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
@@ -46,6 +47,7 @@ import "C"
 const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
+	dbFile = repoRoot + "/db.cid"
 )
 
 func main() {
@@ -115,75 +117,42 @@ func go_ipfs_cache_start() {
 
 	printSwarmAddrs(g.node)
 
-	//load_db(g.ctx, g.node)
-	g.db = make(GenericMap)
+	g.db, err = load_db(g.ctx)
 
-	//s, err := coreunix.Add(g.node, bytes.NewBufferString("halusky"))
-	//fmt.Println("Added ", s)
-	//<-g.ctx.Done()
-
-	//read, err := coreunix.Cat(ctx, g_node, s)
-
-	//if err != nil {
-	//	fmt.Println("Error: failed to cat ", err);
-	//}
-
-	//io.Copy(os.Stdout, read)
-	//fmt.Println("");
-
-	//<-ctx.Done()
+	if err != nil { g.db = make(GenericMap) }
 }
 
-//func load_db(ctx context.Context, n *core.IpfsNode) (GenericMap, error) {
-//	pid, err := peer.IDFromPrivateKey(g.node.PrivateKey)
-//
-//	fmt.Println("aaa 1");
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	//p, err := path.ParseCidToPath(pid.Pretty())
-//	//if err != nil {
-//	//	return nil, err
-//	//}
-//
-//	//p := path.Path("/ipns/" + pid.Pretty());
-//	go func(){
-//		p := path.Path("/ipns/" + pid.Pretty());
-//
-//		fmt.Println("aaa 2 ipns: ", pid.Pretty());
-//		node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
-//		if err != nil {
-//			fmt.Println("aaa 2 err ", err);
-//			return
-//		}
-//
-//		fmt.Println("aaa 3 resolved to: ", node.Cid(), " ", node.Cid().String());
-//		//read, err := coreunix.Cat(ctx, n, path.FromCid(node.Cid()).String())
-//		//read, err := coreunix.Cat(ctx, n, node.Cid().String())
-//
-//		//fmt.Printf("aaaaaaa %q\n", read);
-//	}()
-//
-//
-//
-//
-//	//p := path.Path(pid.Pretty());
-//
-//	//fmt.Println("aaa 2 ", pid.Pretty());
-//	//node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
-//	//if err != nil {
-//	//	fmt.Println("aaa 2 err ", err);
-//	//	return nil, err
-//	//}
-//
-//	//fmt.Println("aaa 3");
-//	//read, err := coreunix.Cat(ctx, n, path.FromCid(node.Cid()).String())
-//
-//	//fmt.Printf("aaaaaaa %q\n", read);
-//
-//	return make(GenericMap), nil
-//}
+func get_content(ctx context.Context, cid string) ([]byte, error) {
+	reader, err := coreunix.Cat(ctx, g.node, cid)
+	if err != nil { return nil, err }
+
+	bytes, err := ioutil.ReadAll(reader)
+	if err != nil { return nil, err }
+
+	return bytes, nil
+}
+
+func load_db(ctx context.Context) (GenericMap, error) {
+	cid, err := ioutil.ReadFile(dbFile);
+	if err != nil { return nil, err }
+
+	json_data, err := get_content(ctx, string(cid[:]))
+	if err != nil { return nil, err }
+
+	var m GenericMap
+	err = json.Unmarshal(json_data, &m)
+	if err != nil { return nil, err }
+
+	return m, nil
+}
+
+func resolve(ctx context.Context, n *core.IpfsNode, ipns_id string) (string, error) {
+	p := path.Path("/ipns/" + ipns_id)
+	node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
+	if err != nil { return "", err }
+
+	return node.Cid().String(), nil
+}
 
 func query_to_map(p *C.struct_query_view) interface {} {
 	if p.str_size != 0 {
@@ -286,6 +255,12 @@ func go_ipfs_cache_update_db(dv *C.struct_query_view,
 		fmt.Println("Error: failed to update db ", err)
 		C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
 		return
+	}
+
+	err = ioutil.WriteFile(dbFile, []byte(cid), 0644)
+
+	if err != nil {
+		fmt.Println("Error: writing db into a local file ", err)
 	}
 
 	publish(g.ctx, g.node, cid)
