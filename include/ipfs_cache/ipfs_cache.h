@@ -4,11 +4,10 @@
 #include <functional>
 #include <memory>
 
-#include <ipfs_cache/query.h>
-
 namespace ipfs_cache {
 
-struct IpfsCacheImpl;
+struct Backend;
+struct Db;
 
 class IpfsCache {
 public:
@@ -18,16 +17,19 @@ public:
     IpfsCache& operator=(const IpfsCache&) = delete;
 
     // Returns the IPNS CID of the database.
+    // The database could be then looked up by e.g. pointing your browser to:
+    // "https://ipfs.io/ipns/" + ipfs.ipns_id()
     std::string ipns_id() const;
 
-    void update_db(const entry& query, std::function<void(std::string)>);
+    void update_db(std::string url, std::string cid, std::function<void()>);
 
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
 
     ~IpfsCache();
 
 private:
-    std::shared_ptr<IpfsCacheImpl> _impl;
+    std::unique_ptr<Db> _db;
+    std::unique_ptr<Backend> _backend;
 };
 
 } // ipfs_cache namespace

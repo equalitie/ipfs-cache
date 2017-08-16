@@ -11,8 +11,6 @@ import (
 	"bytes"
 	"sort"
 	"unsafe"
-	"reflect"
-	"encoding/json"
 	"time"
 	"io"
 	"io/ioutil"
@@ -29,18 +27,18 @@ import (
 // #cgo CFLAGS: -DIN_GO=1
 //#include <stdlib.h>
 //#include <stddef.h>
-//#include "../src/query_view_struct.h"
 //
 //// Don't export these functions into C or we'll get "unused function" warnings.
 //// (Or errors saying functions are defined more than once if the're not static)
 //
 //#if IN_GO
-//static void execute_add_callback(void* func, char* data, size_t size, void* arg)
+//static void execute_void_cb(void* func, void* arg)
+//{
+//    ((void(*)(void*)) func)(arg);
+//}
+//static void execute_data_cb(void* func, void* data, size_t size, void* arg)
 //{
 //    ((void(*)(char*, size_t, void*)) func)(data, size, arg);
-//}
-//static struct query_view* get_nth(struct query_view* dv, size_t n) {
-//    return &dv[n];
 //}
 //#endif // if IN_GO
 import "C"
@@ -48,7 +46,6 @@ import "C"
 const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
-	dbFile = repoRoot + "/db.cid"
 )
 
 func main() {
@@ -103,13 +100,10 @@ func printSwarmAddrs(node *core.IpfsNode) {
 	}
 }
 
-type GenericMap map[string]interface{}
-
 type Cache struct {
 	node *core.IpfsNode
 	ctx context.Context
 	cancel context.CancelFunc
-	db GenericMap
 }
 
 var g Cache
@@ -135,10 +129,6 @@ func go_ipfs_cache_start() bool {
 
 	printSwarmAddrs(g.node)
 
-	g.db, err = load_db(g.ctx)
-
-	if err != nil { g.db = make(GenericMap) }
-
 	return true
 }
 
@@ -147,91 +137,12 @@ func go_ipfs_cache_stop() {
 	g.cancel()
 }
 
-func get_content(ctx context.Context, cid string) ([]byte, error) {
-	reader, err := coreunix.Cat(ctx, g.node, cid)
-	if err != nil { return nil, err }
-
-	bytes, err := ioutil.ReadAll(reader)
-	if err != nil { return nil, err }
-
-	return bytes, nil
-}
-
-func load_db(ctx context.Context) (GenericMap, error) {
-	cid, err := ioutil.ReadFile(dbFile);
-	if err != nil { return nil, err }
-
-	json_data, err := get_content(ctx, string(cid[:]))
-	if err != nil { return nil, err }
-
-	var m GenericMap
-	err = json.Unmarshal(json_data, &m)
-	if err != nil { return nil, err }
-
-	return m, nil
-}
-
 func resolve(ctx context.Context, n *core.IpfsNode, ipns_id string) (string, error) {
 	p := path.Path("/ipns/" + ipns_id)
 	node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
 	if err != nil { return "", err }
 
 	return node.Cid().String(), nil
-}
-
-func query_to_map(p *C.struct_query_view) interface {} {
-	if p.str_size != 0 {
-		// Either string or entry.
-		if p.child_count == 0 {
-			// String
-			s := C.GoStringN(p.str, C.int(p.str_size))
-			if p.child_count != 0 {
-				panic(fmt.Sprintf("String must have zero children"));
-			}
-			return s
-		} else {
-			// Entry
-			name := C.GoStringN(p.str, C.int(p.str_size))
-			if p.child_count != 1 {
-				panic(fmt.Sprintf("Entry must have exactly one child"));
-			}
-			m := make(GenericMap);
-			m[name] = query_to_map(p.childs);
-			return m
-		}
-	}
-
-	m := make(GenericMap)
-
-	cnt := int(p.child_count)
-
-	for i := 0; i < cnt; i++ {
-		ch := C.get_nth(p.childs, C.size_t(i))
-		mm := query_to_map(ch).(GenericMap)
-		for key, value := range mm {
-			m[key] = value
-		}
-	}
-
-	return m;
-}
-
-func is_same_type(a interface{}, b interface{}) bool {
-	return reflect.TypeOf(a) == reflect.TypeOf(b)
-}
-
-func update_db(db GenericMap, query GenericMap) {
-	for key, q_v := range query {
-		db_v, ok := db[key]
-
-		if ok && is_same_type(db_v, q_v) {
-			if m, ok := db_v.(GenericMap); ok {
-				update_db(m, q_v.(GenericMap));
-			}
-		} else {
-			db[key] = q_v
-		}
-	}
 }
 
 // IMPORTANT: The returned value needs to be `free`d.
@@ -267,38 +178,12 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 	return nil
 }
 
-//export go_ipfs_cache_update_db
-func go_ipfs_cache_update_db(dv *C.struct_query_view,
-	                         fn unsafe.Pointer, fn_arg unsafe.Pointer) {
-
-	fmt.Println("go_opfs_cache_update_db");
-
-	update_db(g.db, query_to_map(dv).(GenericMap))
-
-	msg, _ := json.Marshal(g.db)
-
+//export go_ipfs_cache_publish
+func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	go func() {
-		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
-
-		if err != nil {
-			fmt.Println("Error: failed to update db ", err)
-			C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
-			return
-		}
-
-		err = ioutil.WriteFile(dbFile, []byte(cid), 0644)
-
-		if err != nil {
-			fmt.Println("Error: writing db into a local file ", err)
-		}
-
-		fmt.Println("go_opfs_cache_update_db::publish");
-		publish(g.ctx, g.node, cid)
-
-		cstr := C.CString(cid)
-		defer C.free(unsafe.Pointer(cstr))
-
-		C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
+		id := C.GoString(cid)
+		publish(g.ctx, g.node, id);
+		C.execute_void_cb(fn, fn_arg)
 	}()
 }
 
@@ -306,20 +191,47 @@ func go_ipfs_cache_update_db(dv *C.struct_query_view,
 func go_ipfs_cache_insert_content(
 		data unsafe.Pointer, size C.size_t,
 		fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	go func() {
+		fmt.Println("go_opfs_cache_insert_content");
 
-	fmt.Println("go_opfs_cache_insert_content");
+		msg := C.GoBytes(data, C.int(size))
+		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
 
-	msg := C.GoBytes(data, C.int(size))
-	cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
+		if err != nil {
+			fmt.Println("Error: failed to insert content ", err)
+			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			return;
+		}
 
-	if err != nil {
-		fmt.Println("Error: failed to insert content ", err)
-		C.execute_add_callback(fn, nil, C.size_t(0), fn_arg)
-		return;
-	}
+		cdata := C.CBytes([]byte(cid))
+		defer C.free(cdata)
 
-	cstr := C.CString(cid)
-	defer C.free(unsafe.Pointer(cstr))
-
-	C.execute_add_callback(fn, cstr, C.size_t(len(cid)), fn_arg)
+		C.execute_data_cb(fn, cdata, C.size_t(len(cid)), fn_arg)
+	}()
 }
+
+//export go_ipfs_get_content
+func go_ipfs_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) { //([]byte, error) {
+	go func() {
+		cid := C.GoString(c_cid)
+
+		reader, err := coreunix.Cat(g.ctx, g.node, cid)
+
+		if err != nil {
+			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			return
+		}
+
+		bytes, err := ioutil.ReadAll(reader)
+		if err != nil {
+			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			return
+		}
+
+		cdata := C.CBytes(bytes)
+		defer C.free(cdata)
+
+		C.execute_data_cb(fn, cdata, C.size_t(len(bytes)), fn_arg)
+	}()
+}
+

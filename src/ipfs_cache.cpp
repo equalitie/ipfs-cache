@@ -1,88 +1,46 @@
 #include <assert.h>
 #include <iostream>
 #include <ipfs_cache/ipfs_cache.h>
-#include <go_ipfs_cache.h>
+#include <json.hpp>
 
 #include "dispatch.h"
-#include "query_view.h"
+#include "backend.h"
 
 using namespace std;
 using namespace ipfs_cache;
+using json = nlohmann::json;
 
-struct ipfs_cache::IpfsCacheImpl {
-    bool was_destroyed;
-    event_base* evbase;
-
-    IpfsCacheImpl(event_base* evbase)
-        : was_destroyed(false)
-        , evbase(evbase)
-    {}
-};
+// This class is simply so that we don't have to forward declare the json class
+// in ipfs_cache.h (it has 9 template arguments with defaults).
+struct ipfs_cache::Db : json { };
 
 IpfsCache::IpfsCache(event_base* evbase)
-    : _impl(make_shared<IpfsCacheImpl>(evbase))
+    : _db(new Db)
+    , _backend(new Backend(evbase))
 {
-    bool started = go_ipfs_cache_start();
-
-    if (!started) {
-        throw std::runtime_error("Failed to start IPFS");
-    }
 }
 
 string IpfsCache::ipns_id() const {
-    char* cid = go_ipfs_cache_ipns_id();
-    string ret(cid);
-    free(cid);
-    return ret;
+    return _backend->ipns_id();
 }
 
-void IpfsCache::update_db(const entry& e, std::function<void(std::string)> callback)
+void IpfsCache::update_db(string url, string cid, std::function<void()> cb)
 {
-    struct OnAdd {
-        shared_ptr<IpfsCacheImpl> impl;
-        function<void(string)> cb;
+    (*_db)[url] = cid;
 
-        static void on_add(const char* data, size_t size, void* arg) {
-            auto self = reinterpret_cast<OnAdd*>(arg);
-            if (self->impl->was_destroyed) return;
-            auto cb   = move(self->cb);
-            auto impl = move(self->impl);
-            delete self;
-            cb(string(data, data + size));
-        }
-    };
+    string str = _db->dump();
 
-    with_query_view(e, [&](query_view* dv) {
-        go_ipfs_cache_update_db( dv
-                               , (void*) OnAdd::on_add
-                               , (void*) new OnAdd{_impl, move(callback)});
-    });
+    _backend->insert_content((uint8_t*) str.data(), str.size(),
+        [=, cb = move(cb)](string cid){
+            _backend->publish(move(cid), [cb = move(cb)]() {
+                cb();
+            });
+        });
 }
 
 void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
 {
-    struct OnInsert {
-        shared_ptr<IpfsCacheImpl> impl;
-        function<void(string)> cb;
-
-        static void on_insert(const char* data, size_t size, void* arg) {
-            auto self = reinterpret_cast<OnInsert*>(arg);
-            if (self->impl->was_destroyed) return;
-            auto cb = move(self->cb);
-            auto impl = move(self->impl);
-            delete self;
-            cb(string(data, data + size)); // TODO: string_view?
-        }
-    };
-
-    go_ipfs_cache_insert_content( (void*) data, size
-                                , (void*) OnInsert::on_insert
-                                , (void*) new OnInsert{_impl, move(cb)} );
+    return _backend->insert_content(data, size, move(cb));
 }
 
-IpfsCache::~IpfsCache()
-{
-    cout << "~" << endl;
-    _impl->was_destroyed = true;
-    go_ipfs_cache_stop();
-}
+IpfsCache::~IpfsCache() {}

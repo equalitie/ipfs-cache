@@ -41,13 +41,10 @@ int main()
 
         string test_data = "My test content2";
 
-        ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string cid) {
-            cout << "added " << cid << endl;
+        ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string ipfs_id) {
+            cout << "added " << ipfs_id << endl;
 
-            auto q = ic::entry( "test_content2.org"
-                              , ic::make_node(ic::entry("CID", cid)));
-
-            ipfs.update_db(q, [&ipfs](auto a) {
+            ipfs.update_db("test_content.org", ipfs_id, [=, &ipfs]() {
                 cout << "Updated DB at https://ipfs.io/ipns/" << ipfs.ipns_id() << endl;
             });
         });
