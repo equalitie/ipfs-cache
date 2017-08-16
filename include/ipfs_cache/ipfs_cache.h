@@ -1,6 +1,6 @@
 #pragma once
 
-#include <event.h>
+#include <event2/event.h>
 #include <functional>
 #include <memory>
 
@@ -24,6 +24,7 @@ public:
     void update_db(std::string url, std::string cid, std::function<void()>);
 
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
+    void get_content(const std::string& ipfs_id, std::function<void(std::string)>);
 
     ~IpfsCache();
 

@@ -28,8 +28,8 @@ import (
 //#include <stdlib.h>
 //#include <stddef.h>
 //
-//// Don't export these functions into C or we'll get "unused function" warnings.
-//// (Or errors saying functions are defined more than once if the're not static)
+//// Don't export these functions into C or we'll get "unused function" warnings
+//// (Or errors saying functions are defined more than once if the're not static).
 //
 //#if IN_GO
 //static void execute_void_cb(void* func, void* arg)
@@ -68,7 +68,7 @@ func doesnt_exist_or_is_empty(path string) bool {
 	return false
 }
 
-func openOrCreateRepo(ctx context.Context) (repo.Repo, error) {
+func openOrCreateRepo(repoRoot string) (repo.Repo, error) {
 	if doesnt_exist_or_is_empty(repoRoot) {
 		conf, err := config.Init(os.Stdout, nBitsForKeypair)
 
@@ -109,10 +109,13 @@ type Cache struct {
 var g Cache
 
 //export go_ipfs_cache_start
-func go_ipfs_cache_start() bool {
+func go_ipfs_cache_start(c_repoPath *C.char) bool {
+
+	repoRoot := C.GoString(c_repoPath)
+
 	g.ctx, g.cancel = context.WithCancel(context.Background())
 
-	r, err := openOrCreateRepo(g.ctx);
+	r, err := openOrCreateRepo(repoRoot);
 
 	if err != nil {
 		fmt.Println("err", err);
@@ -180,21 +183,25 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 
 //export go_ipfs_cache_publish
 func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	id := C.GoString(cid)
+
 	go func() {
-		id := C.GoString(cid)
+		fmt.Println("go_ipfs_cache_publish start");
+		defer fmt.Println("go_ipfs_cache_publish end");
+
 		publish(g.ctx, g.node, id);
 		C.execute_void_cb(fn, fn_arg)
 	}()
 }
 
 //export go_ipfs_cache_insert_content
-func go_ipfs_cache_insert_content(
-		data unsafe.Pointer, size C.size_t,
-		fn unsafe.Pointer, fn_arg unsafe.Pointer) {
-	go func() {
-		fmt.Println("go_opfs_cache_insert_content");
+func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	msg := C.GoBytes(data, C.int(size))
 
-		msg := C.GoBytes(data, C.int(size))
+	go func() {
+		fmt.Println("go_ipfs_cache_insert_content start");
+		defer fmt.Println("go_ipfs_cache_insert_content end");
+
 		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
 
 		if err != nil {
@@ -210,10 +217,13 @@ func go_ipfs_cache_insert_content(
 	}()
 }
 
-//export go_ipfs_get_content
-func go_ipfs_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) { //([]byte, error) {
+//export go_ipfs_cache_get_content
+func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	cid := C.GoString(c_cid)
+
 	go func() {
-		cid := C.GoString(c_cid)
+		fmt.Println("go_ipfs_cache_get_content start");
+		defer fmt.Println("go_ipfs_cache_get_content end");
 
 		reader, err := coreunix.Cat(g.ctx, g.node, cid)
 

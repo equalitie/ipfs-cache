@@ -1,6 +1,9 @@
 #include <iostream>
 #include <ipfs_cache/ipfs_cache.h>
 #include <signal.h>
+#include "dispatch.h"
+
+#include <event2/thread.h>
 
 using namespace std;
 
@@ -17,6 +20,8 @@ static void setup_threading()
     evthread_use_pthreads();
 #elif defined(EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED)
     evthread_use_windows_threads();
+#else
+#   error No support for threading
 #endif
 }
 
@@ -39,18 +44,23 @@ int main()
 
         ic::IpfsCache ipfs(evbase);
 
-        string test_data = "My test content2";
+        string test_data = "My test content4";
 
         ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string ipfs_id) {
             cout << "added " << ipfs_id << endl;
 
             ipfs.update_db("test_content.org", ipfs_id, [=, &ipfs]() {
                 cout << "Updated DB at https://ipfs.io/ipns/" << ipfs.ipns_id() << endl;
+
+                ipfs.get_content(ipfs_id, [=](string content) {
+                    cout << "content \"" << content << "\"" << endl;
+                });
             });
         });
 
         cout << "Press Ctrl-C to exit." << endl;
         event_base_loop(evbase, 0);
+        cout << "fin" << endl;
     }
     catch (...) {}
 

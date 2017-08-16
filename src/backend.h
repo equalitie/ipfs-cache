@@ -1,6 +1,6 @@
 #pragma once
 
-#include <event.h>
+#include <event2/event.h>
 #include <string>
 #include <functional>
 #include <memory>
@@ -21,6 +21,7 @@ public:
 
     void publish(const std::string& cid, std::function<void()>);
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
+    void get_content(const std::string& cid, std::function<void(std::string)>);
 
     ~Backend();
 

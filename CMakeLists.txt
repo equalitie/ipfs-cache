@@ -35,4 +35,5 @@ add_dependencies(ipfs-cache json)
 
 target_link_libraries(ipfs-cache
     event
+    event_pthreads
     ${CMAKE_SOURCE_DIR}/golang/go_ipfs_cache.a)

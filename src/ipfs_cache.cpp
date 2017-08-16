@@ -20,7 +20,8 @@ IpfsCache::IpfsCache(event_base* evbase)
 {
 }
 
-string IpfsCache::ipns_id() const {
+string IpfsCache::ipns_id() const
+{
     return _backend->ipns_id();
 }
 
@@ -41,6 +42,11 @@ void IpfsCache::update_db(string url, string cid, std::function<void()> cb)
 void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
 {
     return _backend->insert_content(data, size, move(cb));
+}
+
+void IpfsCache::get_content(const string& ipfs_id, function<void(string)> cb)
+{
+    return _backend->get_content(ipfs_id, move(cb));
 }
 
 IpfsCache::~IpfsCache() {}
