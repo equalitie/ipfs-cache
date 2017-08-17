@@ -8,6 +8,7 @@ using namespace ipfs_cache;
 using namespace std;
 
 struct ipfs_cache::BackendImpl {
+    // This prevents callbacks from being called once Backend is destroyed.
     bool was_destroyed;
     event_base* evbase;
 
@@ -42,18 +43,23 @@ void Backend::publish(const string& cid, std::function<void()> cb)
         shared_ptr<BackendImpl> impl;
         function<void()> cb;
 
-        static void on_publish(void* arg) {
+        static void call(void* arg) {
             auto self = reinterpret_cast<OnPublish*>(arg);
-            if (self->impl->was_destroyed) return;
             auto cb   = move(self->cb);
             auto impl = move(self->impl);
+            auto evb  = impl->evbase;
+
             delete self;
-            dispatch(impl->evbase, move(cb));
+
+            dispatch(evb, [cb = move(cb), impl = move(impl)]() {
+                if (impl->was_destroyed) return;
+                cb();
+            });
         }
     };
 
     go_ipfs_cache_publish( (char*) cid.data()
-                         , (void*) OnPublish::on_publish
+                         , (void*) OnPublish::call
                          , (void*) new OnPublish{_impl, move(cb)});
 }
 
@@ -63,20 +69,25 @@ void Backend::insert_content(const uint8_t* data, size_t size, function<void(str
         shared_ptr<BackendImpl> impl;
         function<void(string)> cb;
 
-        static void on_insert(const char* data, size_t size, void* arg) {
+        static void call(const char* data, size_t size, void* arg) {
             auto self = reinterpret_cast<OnInsert*>(arg);
-            if (self->impl->was_destroyed) return;
-            auto cb = move(self->cb);
+            auto cb   = move(self->cb);
             auto impl = move(self->impl);
+            auto evb  = impl->evbase;
+
             delete self;
-            dispatch(impl->evbase, [cb = move(cb), s = string(data, data + size)]() {
+
+            dispatch(evb, [ cb   = move(cb)
+                          , s    = string(data, data + size)
+                          , impl = move(impl)]() {
+                if (impl->was_destroyed) return;
                 cb(move(s));
             });
         }
     };
 
     go_ipfs_cache_insert_content( (void*) data, size
-                                , (void*) OnInsert::on_insert
+                                , (void*) OnInsert::call
                                 , (void*) new OnInsert{_impl, move(cb)} );
 }
 
@@ -86,20 +97,25 @@ void Backend::get_content(const std::string& ipfs_id, function<void(string)> cb)
         shared_ptr<BackendImpl> impl;
         function<void(string)> cb;
 
-        static void on_get(const char* data, size_t size, void* arg) {
+        static void call(const char* data, size_t size, void* arg) {
             auto self = reinterpret_cast<OnGet*>(arg);
-            if (self->impl->was_destroyed) return;
-            auto cb = move(self->cb);
+            auto cb   = move(self->cb);
             auto impl = move(self->impl);
+            auto evb  = impl->evbase;
+
             delete self;
-            dispatch(impl->evbase, [cb = move(cb), s = string(data, data + size)]() {
+
+            dispatch(evb, [ cb   = move(cb)
+                          , s    = string(data, data + size)
+                          , impl = move(impl)]() {
+                if (impl->was_destroyed) return;
                 cb(move(s));
             });
         }
     };
 
     go_ipfs_cache_get_content( (char*) ipfs_id.data()
-                             , (void*) OnGet::on_get
+                             , (void*) OnGet::call
                              , (void*) new OnGet{_impl, move(cb)} );
 }
 
