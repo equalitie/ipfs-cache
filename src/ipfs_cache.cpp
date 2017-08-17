@@ -16,7 +16,7 @@ struct ipfs_cache::Db : json { };
 
 IpfsCache::IpfsCache(event_base* evbase)
     : _db(new Db)
-    , _backend(new Backend(evbase))
+    , _backend(new Backend(evbase, "./repo"))
 {
 }
 
@@ -25,7 +25,7 @@ string IpfsCache::ipns_id() const
     return _backend->ipns_id();
 }
 
-void IpfsCache::update_db(string url, string cid, std::function<void()> cb)
+void IpfsCache::update_db(string url, string cid, function<void()> cb)
 {
     (*_db)[url] = cid;
 

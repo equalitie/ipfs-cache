@@ -140,12 +140,29 @@ func go_ipfs_cache_stop() {
 	g.cancel()
 }
 
-func resolve(ctx context.Context, n *core.IpfsNode, ipns_id string) (string, error) {
-	p := path.Path("/ipns/" + ipns_id)
-	node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
-	if err != nil { return "", err }
+//export go_ipfs_cache_resolve
+func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	//func resolve(ctx context.Context, n *core.IpfsNode, ipns_id string) (string, error) {
+	ipns_id := C.GoString(c_ipns_id)
 
-	return node.Cid().String(), nil
+	go func() {
+		ctx := g.ctx
+		n := g.node
+		p := path.Path("/ipns/" + ipns_id)
+
+		node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
+
+		if err != nil {
+			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			return
+		}
+
+		data := []byte(node.Cid().String())
+		cdata := C.CBytes(data)
+		defer C.free(cdata)
+
+		C.execute_data_cb(fn, cdata, C.size_t(len(data)), fn_arg)
+	}()
 }
 
 // IMPORTANT: The returned value needs to be `free`d.
