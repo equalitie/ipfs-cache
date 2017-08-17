@@ -10,10 +10,12 @@ static void dispatch(event_base* evbase, F f) {
 
     struct DispatchCtx {
         F callback;
+        struct event* ev;
     
         static void cb(evutil_socket_t, short, void *param) {
             auto ctx = static_cast<DispatchCtx*>(param);
             auto cb = move(ctx->callback);
+            event_free(ctx->ev);
             delete ctx;
             cb();
         }
@@ -26,8 +28,11 @@ static void dispatch(event_base* evbase, F f) {
 
     auto ctx = new DispatchCtx{move(f)};
 
-    struct event* ev1 = event_new(evbase, -1, EV_PERSIST, DispatchCtx::cb, ctx);
-    int add_result = event_add(ev1, &zero_sec);
+    struct event* ev = event_new(evbase, -1, EV_PERSIST, DispatchCtx::cb, ctx);
+
+    ctx->ev = ev;
+
+    int add_result = event_add(ev, &zero_sec);
     assert(add_result == 0);
 }
 
