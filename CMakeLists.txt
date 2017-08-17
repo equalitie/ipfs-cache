@@ -29,11 +29,29 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_executable(ipfs-cache ${sources})
+add_library(ipfs-cache STATIC ${sources})
 
 add_dependencies(ipfs-cache json)
 
-target_link_libraries(ipfs-cache
+################################################################################
+project(example)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb -fsanitize=address")
+
+include_directories(
+    "${CMAKE_SOURCE_DIR}/include")
+
+file(GLOB sources
+  "${CMAKE_SOURCE_DIR}/example/*.cpp")
+
+add_executable(example ${sources})
+
+add_dependencies(example ipfs-cache)
+
+target_link_libraries(example
     event
     event_pthreads
+    ${CMAKE_BINARY_DIR}/libipfs-cache.a
     ${CMAKE_SOURCE_DIR}/golang/go_ipfs_cache.a)
+
+################################################################################

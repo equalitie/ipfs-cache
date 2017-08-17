@@ -1,7 +1,6 @@
 #include <iostream>
 #include <ipfs_cache/ipfs_cache.h>
 #include <signal.h>
-#include "dispatch.h"
 
 #include <event2/thread.h>
 
