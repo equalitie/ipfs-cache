@@ -46,6 +46,7 @@ import "C"
 const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
+	debug = false
 )
 
 func main() {
@@ -146,8 +147,10 @@ func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 	ipns_id := C.GoString(c_ipns_id)
 
 	go func() {
-		fmt.Println("go_ipfs_cache_resolve start");
-		defer fmt.Println("go_ipfs_cache_resolve end");
+		if debug {
+			fmt.Println("go_ipfs_cache_resolve start");
+			defer fmt.Println("go_ipfs_cache_resolve end");
+		}
 
 		ctx := g.ctx
 		n := g.node
@@ -206,8 +209,10 @@ func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer
 	id := C.GoString(cid)
 
 	go func() {
-		fmt.Println("go_ipfs_cache_publish start");
-		defer fmt.Println("go_ipfs_cache_publish end");
+		if debug {
+			fmt.Println("go_ipfs_cache_publish start");
+			defer fmt.Println("go_ipfs_cache_publish end");
+		}
 
 		publish(g.ctx, g.node, id);
 		C.execute_void_cb(fn, fn_arg)
@@ -219,8 +224,10 @@ func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.
 	msg := C.GoBytes(data, C.int(size))
 
 	go func() {
-		fmt.Println("go_ipfs_cache_insert_content start");
-		defer fmt.Println("go_ipfs_cache_insert_content end");
+		if debug {
+			fmt.Println("go_ipfs_cache_insert_content start");
+			defer fmt.Println("go_ipfs_cache_insert_content end");
+		}
 
 		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
 
@@ -241,9 +248,11 @@ func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.
 func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	cid := C.GoString(c_cid)
 
-	go func() {
-		fmt.Println("go_ipfs_cache_get_content start");
-		defer fmt.Println("go_ipfs_cache_get_content end");
+	go func(cid string) {
+		if debug {
+			fmt.Println("go_ipfs_cache_get_content start");
+			defer fmt.Println("go_ipfs_cache_get_content end");
+		}
 
 		reader, err := coreunix.Cat(g.ctx, g.node, cid)
 
@@ -262,6 +271,6 @@ func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 		defer C.free(cdata)
 
 		C.execute_data_cb(fn, cdata, C.size_t(len(bytes)), fn_arg)
-	}()
+	}(cid)
 }
 

@@ -12,7 +12,7 @@ struct Db;
 
 class IpfsCache {
 public:
-    IpfsCache(event_base*);
+    IpfsCache(event_base*, std::string ipns, std::string path_to_repo);
 
     IpfsCache(const IpfsCache&) = delete;
     IpfsCache& operator=(const IpfsCache&) = delete;

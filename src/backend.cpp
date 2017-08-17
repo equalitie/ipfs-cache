@@ -102,6 +102,7 @@ void Backend::insert_content(const uint8_t* data, size_t size, function<void(str
 
 void Backend::get_content(const std::string& ipfs_id, function<void(string)> cb)
 {
+    assert(ipfs_id.size());
     go_ipfs_cache_get_content( (char*) ipfs_id.data()
                              , (void*) HandleData::call
                              , (void*) new HandleData{_impl, move(cb)} );

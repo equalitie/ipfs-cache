@@ -1,16 +1,22 @@
 #include <iostream>
 #include <ipfs_cache/ipfs_cache.h>
 #include <signal.h>
-
 #include <event2/thread.h>
 
+#include "options.h"
+
 using namespace std;
+
+static void quit(event_base* evbase)
+{
+    struct timeval delay = { 0, 0 };
+    event_base_loopexit(evbase, &delay);
+}
 
 static void signal_cb(evutil_socket_t sig, short events, void * ctx)
 {
     event_base* evbase = static_cast<event_base*>(ctx);
-    struct timeval delay = { 0, 0 };
-    event_base_loopexit(evbase, &delay);
+    quit(evbase);
 }
 
 static void setup_threading()
@@ -24,8 +30,24 @@ static void setup_threading()
 #endif
 }
 
-int main()
+int main(int argc, const char** argv)
 {
+    Options options;
+
+    try {
+        options.parse(argc, argv);
+    }
+    catch (const std::exception& e) {
+        cerr << "Error parsing options: " << e.what() << "\n" << endl;
+        cerr << options << endl;
+        return 1;
+    }
+
+    if (options.help()) {
+        cout << options << endl;
+        return 0;
+    }
+
     setup_threading();
 
     auto evbase = event_base_new();
@@ -39,29 +61,37 @@ int main()
 
     // Evbase MUST outlive IpfsCache, so putting it in a scope.
     try {
+        cout << "Starting event loop, press Ctrl-C to exit." << endl;
+
         namespace ic = ipfs_cache;
 
-        ic::IpfsCache ipfs(evbase);
+        ic::IpfsCache ipfs(evbase, options.ipns(), options.repo());
 
-        string test_data = "My test content4";
+        if (options.inject()) {
+            cout << "Inserting content..." << endl;
+            ipfs.insert_content(
+                    (uint8_t*) options.value().data(),
+                    options.value().size(),
+                    [&](string ipfs_id) {
+                        cout << "Updating database..." << endl;
+                        ipfs.update_db(options.key(), ipfs_id, [&]{
+                                cout << "Database " << ipfs.ipns_id() << " updated" << endl;
+                            });
+                    });
+        }
 
-        ipfs.insert_content((uint8_t*) test_data.data(), test_data.size(), [&](string ipfs_id) {
-            cout << "added " << ipfs_id << endl;
+        if (options.fetch()) {
+            cout << "Fetching..." << endl;
+            ipfs.query_db(options.key(), [&](string value) {
+                        cout << "Value:" << value << endl;
+                    });
+        }
 
-            ipfs.update_db("test_content.org", ipfs_id, [=, &ipfs]() {
-                cout << "Updated DB at https://ipfs.io/ipns/" << ipfs.ipns_id() << endl;
-
-                ipfs.get_content(ipfs_id, [=](string content) {
-                    cout << "content \"" << content << "\"" << endl;
-                });
-            });
-        });
-
-        cout << "Press Ctrl-C to exit." << endl;
         event_base_loop(evbase, 0);
-        cout << "fin" << endl;
     }
-    catch (...) {}
+    catch (const exception& e) {
+        cerr << "Exception " << e.what() << endl;
+    }
 
     event_base_free(evbase);
     event_free(signal_event);

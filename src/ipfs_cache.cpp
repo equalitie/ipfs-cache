@@ -13,17 +13,32 @@ using json = nlohmann::json;
 
 // This class is simply so that we don't have to forward declare the json class
 // in ipfs_cache.h (it has 9 template arguments with defaults).
-struct ipfs_cache::Db : json { };
+struct ipfs_cache::Db : json {
+    Db() {}
+    Db(json&& j) : json(j) {}
 
-IpfsCache::IpfsCache(event_base* evbase)
-    : _backend(new Backend(evbase, "./repo"))
+    Db(const json&) = delete;
+    Db(const Db&) = delete;
+    Db& operator=(const Db&) = delete;
+};
+
+IpfsCache::IpfsCache(event_base* evbase, string ipns, string path_to_repo)
+    : _backend(new Backend(evbase, path_to_repo))
 {
-    _backend->resolve(ipns_id(), [=](string ipfs_id) {
+    if (ipns.size() == 0) ipns = _backend->ipns_id();
+
+    _backend->resolve(ipns, [=](string ipfs_id) {
+        if (ipfs_id.size() == 0) {
+            _db.reset(new Db());
+            replay_queued_tasks();
+            return;
+        }
+
         _backend->get_content(ipfs_id, [=](string content) {
             try {
                 _db.reset(new Db(json::parse(content)));
             }
-            catch (std::exception e) {
+            catch (const std::exception& e) {
                 _db.reset(new Db());
             }
 
@@ -48,19 +63,23 @@ void IpfsCache::update_db(string url, string ipfs_id, function<void()> cb)
                 { update_db(move(url), move(ipfs_id), move(cb)); });
     }
 
-    (*_db)[url] = ipfs_id;
+    try {
+        (*_db)[url] = ipfs_id;
+        string str = _db->dump();
 
-    string str = _db->dump();
-
-    _backend->insert_content((uint8_t*) str.data(), str.size(),
-        [=, cb = move(cb)](string db_ipfs_id) {
-            _backend->publish(move(db_ipfs_id), [cb = move(cb)] {
-                cb();
+        _backend->insert_content((uint8_t*) str.data(), str.size(),
+            [=, cb = move(cb)](string db_ipfs_id) {
+                _backend->publish(move(db_ipfs_id), [cb = move(cb)] {
+                    cb();
+                });
             });
-        });
+    }
+    catch(...) {
+        assert(0);
+    }
 }
 
-void IpfsCache::query_db(std::string url, std::function<void(std::string)> cb)
+void IpfsCache::query_db(string url, std::function<void(string)> cb)
 {
     if (!_db) {
         return _queued_tasks.push([ url = move(url)
@@ -71,7 +90,17 @@ void IpfsCache::query_db(std::string url, std::function<void(std::string)> cb)
 
     auto value = (*_db)[url];
 
-    dispatch(_backend->evbase(), [c = move(cb), v = move(value)] { c(move(v)); });
+    if (!value.is_string()) {
+        dispatch(_backend->evbase(), [c = move(cb)] { c(""); });
+        return;
+    }
+
+    string ipfs_id = value;
+
+    _backend->get_content(ipfs_id,
+        [cb = move(cb), this](string content) {
+            cb(move(content));
+        });
 }
 
 void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
