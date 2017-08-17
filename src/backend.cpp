@@ -30,6 +30,8 @@ struct HandleVoid {
 
         delete self;
 
+        if (impl->was_destroyed) return;
+
         dispatch(evb, [cb = move(cb), impl = move(impl)]() {
             if (impl->was_destroyed) return;
             cb();
@@ -48,6 +50,8 @@ struct HandleData {
         auto evb  = impl->evbase;
 
         delete self;
+
+        if (impl->was_destroyed) return;
 
         dispatch(evb, [ cb   = move(cb)
                       , s    = string(data, data + size)
