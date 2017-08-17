@@ -6,6 +6,9 @@
 // in the event_base loop.
 template<class F>
 static void dispatch(event_base* evbase, F f) {
+    // TODO(peterj) Check out the event_active function to do this (might be
+    // more efficient).
+
     using namespace std;
 
     struct DispatchCtx {

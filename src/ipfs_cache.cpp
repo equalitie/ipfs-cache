@@ -42,7 +42,8 @@ void IpfsCache::update_db(string url, string ipfs_id, function<void()> cb)
     if (!_db) {
         return _queued_tasks.push([ url     = move(url)
                                   , ipfs_id = move(ipfs_id)
-                                  , cb      = move(cb)]
+                                  , cb      = move(cb)
+                                  , this ]
                                   { update_db(url, ipfs_id, cb); });
     }
 
@@ -52,7 +53,7 @@ void IpfsCache::update_db(string url, string ipfs_id, function<void()> cb)
 
     _backend->insert_content((uint8_t*) str.data(), str.size(),
         [=, cb = move(cb)](string db_ipfs_id) {
-            _backend->publish(move(db_ipfs_id), [start, cb = move(cb)] {
+            _backend->publish(move(db_ipfs_id), [cb = move(cb)] {
                 cb();
             });
         });

@@ -22,12 +22,15 @@ public:
     // "https://ipfs.io/ipns/" + ipfs.ipns_id()
     std::string ipns_id() const;
 
-    void update_db(std::string url, std::string cid, std::function<void()>);
+    void update_db(std::string url, std::string ipfs_id, std::function<void()>);
 
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
     void get_content(const std::string& ipfs_id, std::function<void(std::string)>);
 
     ~IpfsCache();
+
+private:
+    void replay_queued_tasks();
 
 private:
     std::unique_ptr<Db> _db;
