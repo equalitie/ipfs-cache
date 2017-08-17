@@ -146,6 +146,9 @@ func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 	ipns_id := C.GoString(c_ipns_id)
 
 	go func() {
+		fmt.Println("go_ipfs_cache_resolve start");
+		defer fmt.Println("go_ipfs_cache_resolve end");
+
 		ctx := g.ctx
 		n := g.node
 		p := path.Path("/ipns/" + ipns_id)
@@ -188,7 +191,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 	k := n.PrivateKey
 
 	// TODO: What should be the default timeout?
-	eol := time.Now().Add(3 * time.Minute)
+	eol := time.Now().Add(10 * time.Minute)
 	err  = n.Namesys.PublishWithEOL(ctx, k, path, eol)
 
 	if err != nil {
