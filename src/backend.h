@@ -24,6 +24,8 @@ public:
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
     void get_content(const std::string& cid, std::function<void(std::string)>);
 
+    event_base* evbase() const;
+
     ~Backend();
 
 private:

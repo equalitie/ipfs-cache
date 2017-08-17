@@ -23,6 +23,7 @@ public:
     std::string ipns_id() const;
 
     void update_db(std::string url, std::string ipfs_id, std::function<void()>);
+    void query_db(std::string url, std::function<void(std::string)>);
 
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
     void get_content(const std::string& ipfs_id, std::function<void(std::string)>);

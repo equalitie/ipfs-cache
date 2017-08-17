@@ -107,6 +107,11 @@ void Backend::get_content(const std::string& ipfs_id, function<void(string)> cb)
                              , (void*) new HandleData{_impl, move(cb)} );
 }
 
+event_base* Backend::evbase() const
+{
+    return _impl->evbase;
+}
+
 Backend::~Backend()
 {
     _impl->was_destroyed = true;

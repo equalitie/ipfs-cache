@@ -40,11 +40,12 @@ string IpfsCache::ipns_id() const
 void IpfsCache::update_db(string url, string ipfs_id, function<void()> cb)
 {
     if (!_db) {
-        return _queued_tasks.push([ url     = move(url)
-                                  , ipfs_id = move(ipfs_id)
-                                  , cb      = move(cb)
-                                  , this ]
-                                  { update_db(url, ipfs_id, cb); });
+        return _queued_tasks.push(
+                [ url     = move(url)
+                , ipfs_id = move(ipfs_id)
+                , cb      = move(cb)
+                , this ]
+                { update_db(move(url), move(ipfs_id), move(cb)); });
     }
 
     (*_db)[url] = ipfs_id;
@@ -57,6 +58,20 @@ void IpfsCache::update_db(string url, string ipfs_id, function<void()> cb)
                 cb();
             });
         });
+}
+
+void IpfsCache::query_db(std::string url, std::function<void(std::string)> cb)
+{
+    if (!_db) {
+        return _queued_tasks.push([ url = move(url)
+                                  , cb  = move(cb)
+                                  , this ]
+                                  { query_db(move(url), move(cb)); });
+    }
+
+    auto value = (*_db)[url];
+
+    dispatch(_backend->evbase(), [c = move(cb), v = move(value)] { c(move(v)); });
 }
 
 void IpfsCache::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
