@@ -24,7 +24,7 @@ import (
 	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
-// #cgo CFLAGS: -DIN_GO=1
+// #cgo CFLAGS: -DIN_GO=1 -ggdb
 //#include <stdlib.h>
 //#include <stddef.h>
 //
@@ -170,7 +170,7 @@ func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 	}()
 }
 
-// IMPORTANT: The returned value needs to be `free`d.
+// IMPORTANT: The returned value needs to be explicitly `free`d.
 //export go_ipfs_cache_ipns_id
 func go_ipfs_cache_ipns_id() *C.char {
 	pid, err := peer.IDFromPrivateKey(g.node.PrivateKey)
@@ -193,7 +193,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 
 	k := n.PrivateKey
 
-	// TODO: What should be the default timeout?
+	// TODO(peterj): Timeout duration should be a parameter.
 	eol := time.Now().Add(10 * time.Minute)
 	err  = n.Namesys.PublishWithEOL(ctx, k, path, eol)
 
