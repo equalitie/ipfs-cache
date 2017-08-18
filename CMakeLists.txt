@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 3.5)
 set(GLOB BOOST_VERSION 1.55)
 include(ExternalProject)
 ################################################################################
+# TODO(peterj): Address sanitizer seems to cause segmentation faults on exit
+#               from main(?).
 #set(SANITIZE "-fsanitize=address")
 ################################################################################
 externalproject_add(json
@@ -14,6 +16,16 @@ externalproject_add(json
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
 
+externalproject_add(go_cache
+    URL ${CMAKE_SOURCE_DIR}/golang
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ${MAKE}
+    UPDATE_COMMAND ""
+    INSTALL_COMMAND "")
+
+set(GO_CACHE_DIR "${CMAKE_BINARY_DIR}/go_cache/src/go_cache")
+
 ################################################################################
 project(ipfs-cache)
 
@@ -25,6 +37,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITI
 include_directories(
     "${Boost_INCLUDE_DIR}"
     "${JSON_DIR}"
+    "${GO_CACHE_DIR}"
     "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/golang")
 
@@ -33,7 +46,7 @@ file(GLOB sources
 
 add_library(ipfs-cache STATIC ${sources})
 
-add_dependencies(ipfs-cache json)
+add_dependencies(ipfs-cache json go_cache)
 
 ################################################################################
 project(example)
@@ -55,7 +68,7 @@ target_link_libraries(example
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
-    ${CMAKE_SOURCE_DIR}/golang/go_ipfs_cache.a
+    ${GO_CACHE_DIR}/go_ipfs_cache.a
     ${Boost_LIBRARIES})
 
 ################################################################################
