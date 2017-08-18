@@ -13,49 +13,21 @@ using namespace ipfs_cache;
 
 Client::Client(event_base* evbase, string ipns, string path_to_repo)
     : _backend(new Backend(evbase, path_to_repo))
+    , _db(new Db(*_backend, ipns))
 {
-    _backend->resolve(ipns, [=](string ipfs_id) {
-        if (ipfs_id.size() == 0) {
-            _db.reset(new Db());
-            replay_queued_tasks();
-            return;
-        }
-
-        _backend->cat(ipfs_id, [=](string content) {
-            try {
-                _db.reset(new Db(content));
-            }
-            catch (const std::exception& e) {
-                _db.reset(new Db());
-            }
-
-            replay_queued_tasks();
-        });
-    });
 }
 
 void Client::get_content(string url, std::function<void(string)> cb)
 {
-    if (!_db) {
-        return _queued_tasks.push([ url = move(url)
-                                  , cb  = move(cb)
-                                  , this ]
-                                  { get_content(move(url), move(cb)); });
-    }
+    _db->query(url, [this, cb = move(cb)](string ipfs_id) {
+         if (ipfs_id.empty()) {
+            return cb(move(ipfs_id));
+         }
 
-    auto value = _db->json[url];
-
-    if (!value.is_string()) {
-        dispatch(_backend->evbase(), [c = move(cb)] { c(""); });
-        return;
-    }
-
-    string ipfs_id = value;
-
-    _backend->cat(ipfs_id,
-        [cb = move(cb), this](string content) {
-            cb(move(content));
+        _backend->cat(ipfs_id, [cb = move(cb)](string content) {
+            cb(content);
         });
+    }); 
 }
 
 void Client::replay_queued_tasks()

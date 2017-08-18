@@ -70,13 +70,10 @@ int main(int argc, const char** argv)
             cout << "Inserting content..." << endl;
 
             injector.insert_content(
-                    (uint8_t*) options.value().data(),
-                    options.value().size(),
-                    [&](string ipfs_id) {
-                        cout << "Updating database..." << endl;
-                        injector.update_db(options.key(), ipfs_id, [&]{
-                                cout << "Database " << injector.ipns_id() << " updated" << endl;
-                            });
+                    options.key(),
+                    options.value(),
+                    [&](string /* ipfs_id */) {
+                        cout << "Database " << injector.ipns_id() << " updated" << endl;
                     });
 
             event_base_loop(evbase, 0);

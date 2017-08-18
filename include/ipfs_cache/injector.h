@@ -22,21 +22,15 @@ public:
     // "https://ipfs.io/ipns/" + ipfs.ipns_id()
     std::string ipns_id() const;
 
-    void update_db(std::string url, std::string ipfs_id, std::function<void()>);
-    void query_db(std::string url, std::function<void(std::string)>);
-
-    void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
-    void get_content(const std::string& ipfs_id, std::function<void(std::string)>);
+    void insert_content( std::string url
+                       , const std::string& content
+                       , std::function<void(std::string)>);
 
     ~Injector();
 
 private:
-    void replay_queued_tasks();
-
-private:
-    std::unique_ptr<Db> _db;
     std::unique_ptr<Backend> _backend;
-    std::queue<std::function<void()>> _queued_tasks;
+    std::unique_ptr<Db> _db;
 };
 
 } // ipfs_cache namespace
