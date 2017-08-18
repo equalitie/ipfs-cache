@@ -11,8 +11,8 @@ using namespace std;
 using namespace ipfs_cache;
 using json = nlohmann::json;
 
-// This class is simply so that we don't have to forward declare the json class
-// in ipfs_cache.h (it has 9 template arguments with defaults).
+// This class exists simply so that we don't have to forward declare the json
+// class in ipfs_cache.h (it has 9 template arguments with defaults).
 struct ipfs_cache::Db : json {
     Db() {}
     Db(json&& j) : json(j) {}

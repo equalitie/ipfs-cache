@@ -84,6 +84,7 @@ int main(int argc, const char** argv)
             cout << "Fetching..." << endl;
             ipfs.query_db(options.key(), [&](string value) {
                         cout << "Value:" << value << endl;
+                        quit(evbase);
                     });
         }
 

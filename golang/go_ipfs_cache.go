@@ -143,7 +143,6 @@ func go_ipfs_cache_stop() {
 
 //export go_ipfs_cache_resolve
 func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
-	//func resolve(ctx context.Context, n *core.IpfsNode, ipns_id string) (string, error) {
 	ipns_id := C.GoString(c_ipns_id)
 
 	go func() {
@@ -188,6 +187,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 	path, err := path.ParseCidToPath(cid)
 
 	if err != nil {
+		fmt.Println("go_ipfs_cache_publish failed to parse cid \"", cid, "\"");
 		return err
 	}
 
@@ -198,6 +198,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 	err  = n.Namesys.PublishWithEOL(ctx, k, path, eol)
 
 	if err != nil {
+		fmt.Println("go_ipfs_cache_publish failed");
 		return err
 	}
 
@@ -248,7 +249,7 @@ func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.
 func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	cid := C.GoString(c_cid)
 
-	go func(cid string) {
+	go func() {
 		if debug {
 			fmt.Println("go_ipfs_cache_get_content start");
 			defer fmt.Println("go_ipfs_cache_get_content end");
@@ -257,12 +258,14 @@ func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 		reader, err := coreunix.Cat(g.ctx, g.node, cid)
 
 		if err != nil {
+			fmt.Println("go_ipfs_cache_get_content failed to Cat");
 			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
 			return
 		}
 
 		bytes, err := ioutil.ReadAll(reader)
 		if err != nil {
+			fmt.Println("go_ipfs_cache_get_content failed to read");
 			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
 			return
 		}
@@ -271,6 +274,6 @@ func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 		defer C.free(cdata)
 
 		C.execute_data_cb(fn, cdata, C.size_t(len(bytes)), fn_arg)
-	}(cid)
+	}()
 }
 

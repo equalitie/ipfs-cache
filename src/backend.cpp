@@ -7,6 +7,10 @@
 using namespace ipfs_cache;
 using namespace std;
 
+namespace {
+    const uint32_t CID_SIZE = 46;
+}
+
 struct ipfs_cache::BackendImpl {
     // This prevents callbacks from being called once Backend is destroyed.
     bool was_destroyed;
@@ -81,6 +85,8 @@ string Backend::ipns_id() const {
 
 void Backend::publish(const string& cid, std::function<void()> cb)
 {
+    assert(cid.size() == CID_SIZE);
+
     go_ipfs_cache_publish( (char*) cid.data()
                          , (void*) HandleVoid::call
                          , (void*) new HandleVoid{_impl, move(cb)});
@@ -102,7 +108,8 @@ void Backend::insert_content(const uint8_t* data, size_t size, function<void(str
 
 void Backend::get_content(const std::string& ipfs_id, function<void(string)> cb)
 {
-    assert(ipfs_id.size());
+    assert(ipfs_id.size() == CID_SIZE);
+
     go_ipfs_cache_get_content( (char*) ipfs_id.data()
                              , (void*) HandleData::call
                              , (void*) new HandleData{_impl, move(cb)} );
