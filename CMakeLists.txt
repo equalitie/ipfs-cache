@@ -17,12 +17,13 @@ externalproject_add(json
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
 
 externalproject_add(go_cache
+    # TODO(peterj): Files don't get rebuilt when the .go file changes!
     URL ${CMAKE_SOURCE_DIR}/golang
     BUILD_IN_SOURCE 1
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ${MAKE}
-    UPDATE_COMMAND ""
-    INSTALL_COMMAND "")
+    INSTALL_COMMAND ""
+    PREFIX "go_cache")
 
 set(GO_CACHE_DIR "${CMAKE_BINARY_DIR}/go_cache/src/go_cache")
 

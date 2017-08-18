@@ -220,14 +220,14 @@ func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer
 	}()
 }
 
-//export go_ipfs_cache_insert_content
-func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+//export go_ipfs_cache_add
+func go_ipfs_cache_add(data unsafe.Pointer, size C.size_t, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	msg := C.GoBytes(data, C.int(size))
 
 	go func() {
 		if debug {
-			fmt.Println("go_ipfs_cache_insert_content start");
-			defer fmt.Println("go_ipfs_cache_insert_content end");
+			fmt.Println("go_ipfs_cache_add start");
+			defer fmt.Println("go_ipfs_cache_add end");
 		}
 
 		cid, err := coreunix.Add(g.node, bytes.NewReader(msg))
@@ -245,27 +245,27 @@ func go_ipfs_cache_insert_content(data unsafe.Pointer, size C.size_t, fn unsafe.
 	}()
 }
 
-//export go_ipfs_cache_get_content
-func go_ipfs_cache_get_content(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+//export go_ipfs_cache_cat
+func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	cid := C.GoString(c_cid)
 
 	go func() {
 		if debug {
-			fmt.Println("go_ipfs_cache_get_content start");
-			defer fmt.Println("go_ipfs_cache_get_content end");
+			fmt.Println("go_ipfs_cache_cat start");
+			defer fmt.Println("go_ipfs_cache_cat end");
 		}
 
 		reader, err := coreunix.Cat(g.ctx, g.node, cid)
 
 		if err != nil {
-			fmt.Println("go_ipfs_cache_get_content failed to Cat");
+			fmt.Println("go_ipfs_cache_cat failed to Cat");
 			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
 			return
 		}
 
 		bytes, err := ioutil.ReadAll(reader)
 		if err != nil {
-			fmt.Println("go_ipfs_cache_get_content failed to read");
+			fmt.Println("go_ipfs_cache_cat failed to read");
 			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
 			return
 		}

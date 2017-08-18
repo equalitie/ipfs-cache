@@ -99,20 +99,20 @@ void Backend::resolve(const string& ipns_id, function<void(string)> cb)
                          , (void*) new HandleData{_impl, move(cb)} );
 }
 
-void Backend::insert_content(const uint8_t* data, size_t size, function<void(string)> cb)
+void Backend::add(const uint8_t* data, size_t size, function<void(string)> cb)
 {
-    go_ipfs_cache_insert_content( (void*) data, size
-                                , (void*) HandleData::call
-                                , (void*) new HandleData{_impl, move(cb)} );
+    go_ipfs_cache_add( (void*) data, size
+                     , (void*) HandleData::call
+                     , (void*) new HandleData{_impl, move(cb)} );
 }
 
-void Backend::get_content(const std::string& ipfs_id, function<void(string)> cb)
+void Backend::cat(const std::string& ipfs_id, function<void(string)> cb)
 {
     assert(ipfs_id.size() == CID_SIZE);
 
-    go_ipfs_cache_get_content( (char*) ipfs_id.data()
-                             , (void*) HandleData::call
-                             , (void*) new HandleData{_impl, move(cb)} );
+    go_ipfs_cache_cat( (char*) ipfs_id.data()
+                     , (void*) HandleData::call
+                     , (void*) new HandleData{_impl, move(cb)} );
 }
 
 event_base* Backend::evbase() const

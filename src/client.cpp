@@ -21,7 +21,7 @@ Client::Client(event_base* evbase, string ipns, string path_to_repo)
             return;
         }
 
-        _backend->get_content(ipfs_id, [=](string content) {
+        _backend->cat(ipfs_id, [=](string content) {
             try {
                 _db.reset(new Db(content));
             }
@@ -52,7 +52,7 @@ void Client::get_content(string url, std::function<void(string)> cb)
 
     string ipfs_id = value;
 
-    _backend->get_content(ipfs_id,
+    _backend->cat(ipfs_id,
         [cb = move(cb), this](string content) {
             cb(move(content));
         });
