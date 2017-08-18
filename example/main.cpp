@@ -1,5 +1,6 @@
 #include <iostream>
-#include <ipfs_cache/ipfs_cache.h>
+#include <ipfs_cache/injector.h>
+#include <ipfs_cache/client.h>
 #include <signal.h>
 #include <event2/thread.h>
 
@@ -59,36 +60,41 @@ int main(int argc, const char** argv)
         return 1;
     }
 
-    // Evbase MUST outlive IpfsCache, so putting it in a scope.
     try {
         cout << "Starting event loop, press Ctrl-C to exit." << endl;
-
         namespace ic = ipfs_cache;
 
-        ic::IpfsCache ipfs(evbase, options.ipns(), options.repo());
-
         if (options.inject()) {
+            ic::Injector injector(evbase, options.repo());
+
             cout << "Inserting content..." << endl;
-            ipfs.insert_content(
+
+            injector.insert_content(
                     (uint8_t*) options.value().data(),
                     options.value().size(),
                     [&](string ipfs_id) {
                         cout << "Updating database..." << endl;
-                        ipfs.update_db(options.key(), ipfs_id, [&]{
-                                cout << "Database " << ipfs.ipns_id() << " updated" << endl;
+                        injector.update_db(options.key(), ipfs_id, [&]{
+                                cout << "Database " << injector.ipns_id() << " updated" << endl;
                             });
                     });
+
+            event_base_loop(evbase, 0);
         }
 
         if (options.fetch()) {
-            cout << "Fetching..." << endl;
-            ipfs.query_db(options.key(), [&](string value) {
-                        cout << "Value:" << value << endl;
-                        quit(evbase);
-                    });
-        }
+            ic::Client client(evbase, options.ipns(), options.repo());
 
-        event_base_loop(evbase, 0);
+            if (options.fetch()) {
+                cout << "Fetching..." << endl;
+                client.get_content(options.key(), [&](string value) {
+                            cout << "Value:" << value << endl;
+                            quit(evbase);
+                        });
+            }
+
+            event_base_loop(evbase, 0);
+        }
     }
     catch (const exception& e) {
         cerr << "Exception " << e.what() << endl;

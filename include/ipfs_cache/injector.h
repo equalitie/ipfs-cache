@@ -10,12 +10,12 @@ namespace ipfs_cache {
 struct Backend;
 struct Db;
 
-class IpfsCache {
+class Injector {
 public:
-    IpfsCache(event_base*, std::string ipns, std::string path_to_repo);
+    Injector(event_base*, std::string path_to_repo);
 
-    IpfsCache(const IpfsCache&) = delete;
-    IpfsCache& operator=(const IpfsCache&) = delete;
+    Injector(const Injector&) = delete;
+    Injector& operator=(const Injector&) = delete;
 
     // Returns the IPNS CID of the database.
     // The database could be then looked up by e.g. pointing your browser to:
@@ -28,7 +28,7 @@ public:
     void insert_content(const uint8_t* data, size_t size, std::function<void(std::string)>);
     void get_content(const std::string& ipfs_id, std::function<void(std::string)>);
 
-    ~IpfsCache();
+    ~Injector();
 
 private:
     void replay_queued_tasks();
@@ -40,3 +40,4 @@ private:
 };
 
 } // ipfs_cache namespace
+
