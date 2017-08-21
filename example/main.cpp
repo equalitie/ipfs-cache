@@ -55,10 +55,9 @@ int main(int argc, const char** argv)
 
     try {
         cout << "Starting event loop, press Ctrl-C to exit." << endl;
-        namespace ic = ipfs_cache;
 
         if (options.inject()) {
-            ic::Injector injector(evbase, options.repo());
+            ipfs_cache::Injector injector(evbase, options.repo());
 
             cout << "Inserting content..." << endl;
 
@@ -73,7 +72,7 @@ int main(int argc, const char** argv)
         }
 
         if (options.fetch()) {
-            ic::Client client(evbase, options.ipns(), options.repo());
+            ipfs_cache::Client client(evbase, options.ipns(), options.repo());
 
             if (options.fetch()) {
                 cout << "Fetching..." << endl;

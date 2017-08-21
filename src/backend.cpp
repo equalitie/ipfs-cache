@@ -106,7 +106,12 @@ void Backend::add(const uint8_t* data, size_t size, function<void(string)> cb)
                      , (void*) new HandleData{_impl, move(cb)} );
 }
 
-void Backend::cat(const std::string& ipfs_id, function<void(string)> cb)
+void Backend::add(const string& s, function<void(string)> cb)
+{
+    add((const uint8_t*) s.data(), s.size(), move(cb));
+}
+
+void Backend::cat(const string& ipfs_id, function<void(string)> cb)
 {
     assert(ipfs_id.size() == CID_SIZE);
 
