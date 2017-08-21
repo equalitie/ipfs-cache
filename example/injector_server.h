@@ -23,11 +23,12 @@ public:
 
     uint16_t listening_port() const;
 
+    ~InjectorServer();
+
 private:
     static void handle(struct evhttp_request *req, void *arg);
 
 private:
-    // TODO(peterj): Destroy the pointers in ~InjectorServer.
     event_base* _evbase;
     ipfs_cache::Injector& _injector;
     struct evhttp* _http;
@@ -126,4 +127,11 @@ InjectorServer::listening_port() const
     }
 
     return got_port;
+}
+
+inline
+InjectorServer::~InjectorServer()
+{
+    evhttp_del_accept_socket(_http, _socket);
+    evhttp_free(_http);
 }
