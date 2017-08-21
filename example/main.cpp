@@ -8,16 +8,9 @@
 
 using namespace std;
 
-static void quit(event_base* evbase)
-{
-    struct timeval delay = { 0, 0 };
-    event_base_loopexit(evbase, &delay);
-}
-
 static void signal_cb(evutil_socket_t sig, short events, void * ctx)
 {
-    event_base* evbase = static_cast<event_base*>(ctx);
-    quit(evbase);
+    event_base_loopexit(static_cast<event_base*>(ctx), nullptr);
 }
 
 static void setup_threading()
@@ -86,7 +79,7 @@ int main(int argc, const char** argv)
                 cout << "Fetching..." << endl;
                 client.get_content(options.key(), [&](string value) {
                             cout << "Value:" << value << endl;
-                            quit(evbase);
+                            event_base_loopexit(evbase, NULL);
                         });
             }
 

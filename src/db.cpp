@@ -64,25 +64,19 @@ void Db::update(string key, string value, function<void()> cb)
 void Db::query(string key, function<void(string)> cb)
 {
     if (!_had_update) {
-        _queued_tasks.push([this, key = move(key), cb = move(cb)] {
-            query(move(key), move(cb));
-        });
+        _queued_tasks.push(bind(&Db::query, this, move(key), move(cb)));
         return;
     }
 
     auto   v = _json[key];
     string s = v.is_string() ? v : "";
 
-    dispatch(evbase(), [cb = move(cb), s = move(s)] {
-        cb(s);
-    });
+    dispatch(evbase(), bind(move(cb), move(s)));
 }
 
 void Db::on_db_update(Json&& json)
 {
     _json = move(json);
-
-    cerr << ">>> " << _json.dump() << endl;
 
     if (!_had_update) {
         _had_update = true;

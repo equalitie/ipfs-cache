@@ -24,21 +24,8 @@ void Client::get_content(string url, std::function<void(string)> cb)
             return cb(move(ipfs_id));
          }
 
-        _backend->cat(ipfs_id, [cb = move(cb)](string content) {
-            cb(content);
-        });
+        _backend->cat(ipfs_id, move(cb));
     }); 
-}
-
-void Client::replay_queued_tasks()
-{
-    auto tasks = move(_queued_tasks);
-
-    while (!tasks.empty()) {
-        auto task = move(tasks.front());
-        tasks.pop();
-        task();
-    }
 }
 
 Client::~Client() {}

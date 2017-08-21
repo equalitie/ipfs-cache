@@ -22,9 +22,6 @@ public:
     ~Client();
 
 private:
-    void replay_queued_tasks();
-
-private:
     std::unique_ptr<Backend> _backend;
     std::unique_ptr<Db> _db;
     std::queue<std::function<void()>> _queued_tasks;
