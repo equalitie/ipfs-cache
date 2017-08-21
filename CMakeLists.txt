@@ -12,20 +12,22 @@ externalproject_add(json
     BUILD_COMMAND ""
     UPDATE_COMMAND ""
     INSTALL_COMMAND ""
-    PREFIX "json")
+    PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
 
 externalproject_add(go_cache
-    # TODO(peterj): Files don't get rebuilt when the .go file changes!
-    URL ${CMAKE_SOURCE_DIR}/golang
+    # TODO(peterj): Can it be done so that the .h and .a files are not
+    # created "in source"?
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/golang
+    BUILD_ALWAYS 1
     BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ""
     BUILD_COMMAND ${MAKE}
-    INSTALL_COMMAND ""
-    PREFIX "go_cache")
+    PREFIX go_cache
+    CONFIGURE_COMMAND ""
+    INSTALL_COMMAND "")
 
-set(GO_CACHE_DIR "${CMAKE_BINARY_DIR}/go_cache/src/go_cache")
+set(GO_CACHE_DIR "${CMAKE_SOURCE_DIR}/golang")
 
 ################################################################################
 project(ipfs-cache)
@@ -39,8 +41,7 @@ include_directories(
     "${Boost_INCLUDE_DIR}"
     "${JSON_DIR}"
     "${GO_CACHE_DIR}"
-    "${CMAKE_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/golang")
+    "${CMAKE_SOURCE_DIR}/include")
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
