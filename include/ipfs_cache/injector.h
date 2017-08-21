@@ -22,6 +22,12 @@ public:
     // "https://ipfs.io/ipns/" + ipfs.ipns_id()
     std::string ipns_id() const;
 
+    // Insert `content` into IPFS and store its IPFS ID under the `url` in the
+    // database. The IPFS ID is also returned as a parameter to the callback
+    // function.
+    //
+    // When testing or debugging, the content can be found here:
+    // "https://ipfs.io/ipfs/" + <IPFS ID>
     void insert_content( std::string url
                        , const std::string& content
                        , std::function<void(std::string)>);
