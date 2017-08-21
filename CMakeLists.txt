@@ -51,7 +51,7 @@ add_library(ipfs-cache STATIC ${sources})
 add_dependencies(ipfs-cache json go_cache)
 
 ################################################################################
-project(example)
+project(client)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS program_options REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
@@ -60,13 +60,36 @@ include_directories(
     "${CMAKE_SOURCE_DIR}/include")
 
 file(GLOB sources
-  "${CMAKE_SOURCE_DIR}/example/*.cpp")
+  "${CMAKE_SOURCE_DIR}/example/client.cpp")
 
-add_executable(example ${sources})
+add_executable(client ${sources})
 
-add_dependencies(example ipfs-cache)
+add_dependencies(client ipfs-cache)
 
-target_link_libraries(example
+target_link_libraries(client
+    event
+    event_pthreads
+    ${CMAKE_BINARY_DIR}/libipfs-cache.a
+    ${GO_CACHE_DIR}/go_ipfs_cache.a
+    ${Boost_LIBRARIES})
+
+################################################################################
+project(injector)
+
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
+
+include_directories(
+    "${CMAKE_SOURCE_DIR}/include")
+
+file(GLOB sources
+  "${CMAKE_SOURCE_DIR}/example/injector.cpp")
+
+add_executable(injector ${sources})
+
+add_dependencies(injector ipfs-cache)
+
+target_link_libraries(injector
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
