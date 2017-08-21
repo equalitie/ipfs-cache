@@ -1,5 +1,6 @@
 #include <go_ipfs_cache.h>
 #include <iostream>
+#include <assert.h>
 
 #include "backend.h"
 #include "dispatch.h"

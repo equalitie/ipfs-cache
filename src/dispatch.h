@@ -1,6 +1,6 @@
 #pragma once
 
-#include <assert.h>
+namespace ipfs_cache {
 
 // A helper function for sending lambdas of type void() to be executed
 // in the event_base loop.
@@ -25,3 +25,4 @@ static void dispatch(event_base* evbase, F f) {
     event_active(ev, 0, 0);
 }
 
+} // ipfs_cache namespace
