@@ -29,7 +29,7 @@ private:
 
 private:
     struct event_base* _evbase;
-    event* _event;
+    event* _event = nullptr;
     std::function<void()> _cb;
 };
 

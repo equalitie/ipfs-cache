@@ -3,18 +3,15 @@
 
 using namespace ipfs_cache;
 
-inline
 Timer::Timer(struct event_base* evbase)
     : _evbase(evbase)
 { }
 
-inline
 bool Timer::is_running() const
 {
     return _event != nullptr;
 }
 
-inline
 void Timer::stop()
 {
     if (!_event) return;
@@ -24,7 +21,6 @@ void Timer::stop()
     _cb = nullptr;
 }
 
-inline
 void Timer::start(Clock::duration duration, std::function<void()> cb)
 {
     if (is_running()) {
@@ -47,7 +43,6 @@ void Timer::start(Clock::duration duration, std::function<void()> cb)
     evtimer_add(_event, &timeout);
 }
 
-inline
 void Timer::call(evutil_socket_t, short, void * v)
 {
     auto self = (Timer*) v;
@@ -56,7 +51,6 @@ void Timer::call(evutil_socket_t, short, void * v)
     cb();
 }
 
-inline
 Timer::~Timer()
 {
     stop();
