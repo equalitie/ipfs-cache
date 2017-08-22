@@ -3,8 +3,7 @@
 #include "dispatch.h"
 
 using namespace std;
-
-namespace ipfs_cache {
+using namespace ipfs_cache;
 
 template<class F>
 static void download_database(Backend& backend, const string& ipns, F&& cb) {
@@ -147,6 +146,3 @@ event_base* Db::evbase() const {
 Db::~Db() {
     *_was_destroyed = true;
 }
-
-} // ipfs_cache namespace
-

@@ -81,8 +81,8 @@ int main(int argc, const char** argv)
 
         cout << "Listening on port " << server.listening_port() << endl;
         cout << "IPNS of this database is " << injector.ipns_id() << endl;
-
         cout << "Starting event loop, press Ctrl-C to exit." << endl;
+
         event_base_loop(evbase, 0);
     }
     catch (const exception& e) {
