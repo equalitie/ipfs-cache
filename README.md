@@ -20,7 +20,7 @@ variable to point to a directory where all your `go-ipfs` source files will go.
 E.g.
 
 ```
-export GOPATH=$HOME/go
+$ export GOPATH=$HOME/go
 ```
 
 And THEN follow [these instructions](https://github.com/ipfs/go-ipfs#build-from-source).
@@ -69,7 +69,7 @@ To insert a new _(key, value)_ entry into the database, run the _curl_ command
 with _key_ and _value_ variables set:
 
 ```
-curl -d key=my_key -d value=my_value localhost:8080
+$ curl -d key=my_key -d value=my_value localhost:8080
 ```
 
 When this command succeeds, we can have a look at the database by pointing our
@@ -97,7 +97,7 @@ Finally, to find the _value_ of a _key_ using the _client_ example program, one 
 run it as so:
 
 ```
-./client --repo <PATH TO IPFS REPOSITORY> --ipns <DATABASE IPNS> --key my_key
+$ ./client --repo <PATH TO IPFS REPOSITORY> --ipns <DATABASE IPNS> --key my_key
 ```
 
 **NOTE**: If the _client_ and the _injector_ programs are being executed on the
