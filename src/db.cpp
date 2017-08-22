@@ -7,7 +7,7 @@ using namespace std;
 namespace ipfs_cache {
 
 template<class F>
-static void fetch_database(Backend& backend, const string& ipns, F&& cb) {
+static void download_database(Backend& backend, const string& ipns, F&& cb) {
     backend.resolve(ipns, [&backend, cb = forward<F>(cb)](string ipfs_id) {
         if (ipfs_id.size() == 0) {
             cb(Db::Json());
@@ -25,12 +25,23 @@ static void fetch_database(Backend& backend, const string& ipns, F&& cb) {
     });
 }
 
+template<class F>
+static void upload_database( Backend& backend
+                           , const Db::Json& json
+                           , F&& cb)
+{
+    backend.add(json.dump(),
+            [cb = forward<F>(cb), &backend](string db_ipfs_id) {
+                backend.publish(move(db_ipfs_id), move(cb));
+            });
+}
+
 Db::Db(Backend& backend, string ipns)
     : _ipns(move(ipns))
     , _backend(backend)
     , _was_destroyed(make_shared<bool>(false))
 {
-    fetch_database(_backend, _ipns, [this](Json json) {
+    download_database(_backend, _ipns, [this](Json json) {
         on_db_update(move(json));
     });
 }
@@ -59,6 +70,7 @@ void Db::update(string key, string value, function<void()> cb)
 
 void Db::start_updating()
 {
+    // Not having upload callbacks means we have nothing to update.
     if (_upload_callbacks.empty()) return;
 
     if (_is_uploading) return;
@@ -66,26 +78,23 @@ void Db::start_updating()
 
     auto last_i = --_upload_callbacks.end();
 
-    _backend.add(_json.dump(),
-        [this, last_i](string db_ipfs_id) {
-            _backend.publish(move(db_ipfs_id), [this, last_i] {
-                _is_uploading = false;
+    upload_database(_backend, _json, [this, last_i] {
+        _is_uploading = false;
 
-                auto& cbs = _upload_callbacks;
-                auto  destroyed = _was_destroyed;
+        auto& cbs = _upload_callbacks;
+        auto  destroyed = _was_destroyed;
 
-                while (!cbs.empty()) {
-                    bool is_last = cbs.begin() == last_i;
-                    auto cb = move(cbs.front());
-                    cbs.erase(cbs.begin());
-                    cb();
-                    if (*destroyed) return;
-                    if (is_last) break;
-                }
+        while (!cbs.empty()) {
+            bool is_last = cbs.begin() == last_i;
+            auto cb = move(cbs.front());
+            cbs.erase(cbs.begin());
+            cb();
+            if (*destroyed) return;
+            if (is_last) break;
+        }
 
-                start_updating();
-            });
-        });
+        start_updating();
+    });
 }
 
 void Db::query(string key, function<void(string)> cb)
