@@ -32,7 +32,7 @@ private:
     event_base* _evbase;
     ipfs_cache::Injector& _injector;
     struct evhttp* _http;
-	struct evhttp_bound_socket *_socket;
+    struct evhttp_bound_socket *_socket;
 };
 
 inline
@@ -45,20 +45,20 @@ InjectorServer::InjectorServer( event_base* evbase
 {
     using namespace std;
 
-	if (!_http) {
-		throw runtime_error("Couldn't create http server");
-	}
+    if (!_http) {
+        throw runtime_error("Couldn't create http server");
+    }
 
-	evhttp_set_gencb(_http, InjectorServer::handle, this);
+    evhttp_set_gencb(_http, InjectorServer::handle, this);
 
-	/* Now we tell the evhttp what port to listen on (0 means random) */
-	_socket = evhttp_bind_socket_with_handle(_http, "0.0.0.0", port);
+    /* Now we tell the evhttp what port to listen on (0 means random) */
+    _socket = evhttp_bind_socket_with_handle(_http, "0.0.0.0", port);
 
-	if (!_socket) {
+    if (!_socket) {
         stringstream ss;
         ss << "Couldn't bind to port " << port;
         throw runtime_error(ss.str());
-	}
+    }
 }
 
 inline
@@ -81,23 +81,23 @@ InjectorServer::handle(struct evhttp_request *req, void *arg)
     const char *value = evhttp_find_header(&params, "value");
 
     if (!key || !value) {
-	    evhttp_send_error(req, 501, "'key' and 'value' parameters must be set");
+        evhttp_send_error(req, 501, "'key' and 'value' parameters must be set");
         return;
     }
 
     self->_injector.insert_content(key, value, [=](std::string ipfs_id) {
-	    auto evb = evbuffer_new();
+        auto evb = evbuffer_new();
 
-		evbuffer_add_printf(evb,
+        evbuffer_add_printf(evb,
                     "<!DOCTYPE html>\n"
                     "<html>\n"
                     " <head><meta charset='utf-8'></head>\n"
-		            " <body>%s</body>\n"
+                    " <body>%s</body>\n"
                     "</html>\n", ipfs_id.c_str());
 
-	    evhttp_send_reply(req, 200, "OK", evb);
+        evhttp_send_reply(req, 200, "OK", evb);
 
-		evbuffer_free(evb);
+        evbuffer_free(evb);
     });
 }
 
@@ -115,13 +115,13 @@ InjectorServer::listening_port() const
     fd = evhttp_bound_socket_get_fd(_socket);
     memset(&ss, 0, sizeof(ss));
     if (getsockname(fd, (struct sockaddr *)&ss, &socklen)) {
-    	perror("getsockname() failed");
+        perror("getsockname() failed");
         assert(0);
     }
     if (ss.ss_family == AF_INET) {
-    	got_port = ntohs(((struct sockaddr_in*)&ss)->sin_port);
+        got_port = ntohs(((struct sockaddr_in*)&ss)->sin_port);
     } else if (ss.ss_family == AF_INET6) {
-    	got_port = ntohs(((struct sockaddr_in6*)&ss)->sin6_port);
+        got_port = ntohs(((struct sockaddr_in6*)&ss)->sin6_port);
     } else {
         assert(0);
     }
