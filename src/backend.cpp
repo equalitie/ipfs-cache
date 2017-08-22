@@ -1,5 +1,4 @@
 #include <ipfs_bindings.h>
-#include <iostream>
 #include <assert.h>
 
 #include "backend.h"
