@@ -3,7 +3,6 @@
 #include <event2/event.h>
 #include <functional>
 #include <memory>
-#include <queue>
 
 namespace ipfs_cache {
 
@@ -30,7 +29,6 @@ public:
 private:
     std::unique_ptr<Backend> _backend;
     std::unique_ptr<Db> _db;
-    std::queue<std::function<void()>> _queued_tasks;
 };
 
 } // ipfs_cache namespace
