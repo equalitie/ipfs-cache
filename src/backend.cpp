@@ -1,4 +1,4 @@
-#include <go_ipfs_cache.h>
+#include <ipfs_bindings.h>
 #include <iostream>
 #include <assert.h>
 

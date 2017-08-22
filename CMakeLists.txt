@@ -15,7 +15,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-set(GO_CACHE_DIR "${CMAKE_BINARY_DIR}/golang")
+set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings")
 
 ################################################################################
 project(ipfs-cache)
@@ -28,23 +28,23 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITI
 include_directories(
     "${Boost_INCLUDE_DIR}"
     "${JSON_DIR}"
-    "${GO_CACHE_DIR}"
+    "${BINDING_DIR}"
     "${CMAKE_SOURCE_DIR}/include")
 
 add_custom_command(
-    OUTPUT ${GO_CACHE_DIR}/go_ipfs_cache.h
-           ${GO_CACHE_DIR}/go_ipfs_cache.a
-    DEPENDS ${CMAKE_SOURCE_DIR}/src/go_ipfs_cache.go
-    COMMAND mkdir -p ${GO_CACHE_DIR}
-         && cd ${GO_CACHE_DIR}
-         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go_ipfs_cache.go)
+    OUTPUT ${BINDING_DIR}/ipfs_bindings.h
+           ${BINDING_DIR}/ipfs_bindings.a
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
+    COMMAND mkdir -p ${BINDING_DIR}
+         && cd ${BINDING_DIR}
+         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
 add_library(ipfs-cache STATIC ${sources}
-    ${GO_CACHE_DIR}/go_ipfs_cache.h
-    ${GO_CACHE_DIR}/go_ipfs_cache.a)
+    ${BINDING_DIR}/ipfs_bindings.h
+    ${BINDING_DIR}/ipfs_bindings.a)
 
 add_dependencies(ipfs-cache json)
 
@@ -68,7 +68,7 @@ target_link_libraries(client
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
-    ${GO_CACHE_DIR}/go_ipfs_cache.a
+    ${BINDING_DIR}/ipfs_bindings.a
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -91,7 +91,7 @@ target_link_libraries(injector
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
-    ${GO_CACHE_DIR}/go_ipfs_cache.a
+    ${BINDING_DIR}/ipfs_bindings.a
     ${Boost_LIBRARIES})
 
 ################################################################################
