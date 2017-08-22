@@ -15,19 +15,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-
-externalproject_add(go_cache
-    # TODO(peterj): Can it be done so that the .h and .a files are not
-    # created "in source"?
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/golang
-    BUILD_ALWAYS 1
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE}
-    PREFIX go_cache
-    CONFIGURE_COMMAND ""
-    INSTALL_COMMAND "")
-
-set(GO_CACHE_DIR "${CMAKE_SOURCE_DIR}/golang")
+set(GO_CACHE_DIR "${CMAKE_BINARY_DIR}/golang")
 
 ################################################################################
 project(ipfs-cache)
@@ -43,12 +31,22 @@ include_directories(
     "${GO_CACHE_DIR}"
     "${CMAKE_SOURCE_DIR}/include")
 
+add_custom_command(
+    OUTPUT ${GO_CACHE_DIR}/go_ipfs_cache.h
+           ${GO_CACHE_DIR}/go_ipfs_cache.a
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/go_ipfs_cache.go
+    COMMAND mkdir -p ${GO_CACHE_DIR}
+         && cd ${GO_CACHE_DIR}
+         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go_ipfs_cache.go)
+
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_library(ipfs-cache STATIC ${sources})
+add_library(ipfs-cache STATIC ${sources}
+    ${GO_CACHE_DIR}/go_ipfs_cache.h
+    ${GO_CACHE_DIR}/go_ipfs_cache.a)
 
-add_dependencies(ipfs-cache json go_cache)
+add_dependencies(ipfs-cache json)
 
 ################################################################################
 project(client)
