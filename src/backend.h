@@ -4,6 +4,8 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <ipfs_cache/timer.h>
+
 
 namespace ipfs_cache {
 
@@ -23,7 +25,7 @@ public:
     void add(const std::string&, std::function<void(std::string)>); // Convenience function.
 
     void cat(const std::string& cid, std::function<void(std::string)>);
-    void publish(const std::string& cid, std::function<void()>);
+    void publish(const std::string& cid, Timer::Duration, std::function<void()>);
     void resolve(const std::string& ipns_id, std::function<void(std::string)>);
 
     event_base* evbase() const;

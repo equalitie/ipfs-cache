@@ -9,6 +9,7 @@ namespace ipfs_cache {
 class Timer {
 public:
     using Clock = std::chrono::steady_clock;
+    using Duration = Clock::duration;
 
 public:
     Timer(struct event_base*);
@@ -16,7 +17,7 @@ public:
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
 
-    void start(Clock::duration, std::function<void()>);
+    void start(Duration, std::function<void()>);
 
     bool is_running() const;
 

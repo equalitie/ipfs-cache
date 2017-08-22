@@ -31,7 +31,9 @@ static void upload_database( Backend& backend
 {
     backend.add(json.dump(),
             [cb = forward<F>(cb), &backend](string db_ipfs_id) {
-                backend.publish(move(db_ipfs_id), move(cb));
+                backend.publish( move(db_ipfs_id)
+                               , chrono::minutes(10)
+                               , move(cb));
             });
 }
 

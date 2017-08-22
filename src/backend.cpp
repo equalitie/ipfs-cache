@@ -83,11 +83,14 @@ string Backend::ipns_id() const {
     return ret;
 }
 
-void Backend::publish(const string& cid, std::function<void()> cb)
+void Backend::publish(const string& cid, Timer::Duration d, std::function<void()> cb)
 {
+    using namespace std::chrono;
+
     assert(cid.size() == CID_SIZE);
 
     go_ipfs_cache_publish( (char*) cid.data()
+                         , duration_cast<seconds>(d).count()
                          , (void*) HandleVoid::call
                          , (void*) new HandleVoid{_impl, move(cb)});
 }

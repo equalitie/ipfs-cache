@@ -27,6 +27,7 @@ import (
 // #cgo CFLAGS: -DIN_GO=1 -ggdb
 //#include <stdlib.h>
 //#include <stddef.h>
+//#include <stdint.h>
 //
 //// Don't export these functions into C or we'll get "unused function" warnings
 //// (Or errors saying functions are defined more than once if the're not static).
@@ -183,7 +184,7 @@ func go_ipfs_cache_ipns_id() *C.char {
 	return cstr
 }
 
-func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
+func publish(ctx context.Context, duration time.Duration, n *core.IpfsNode, cid string) error {
 	path, err := path.ParseCidToPath(cid)
 
 	if err != nil {
@@ -193,8 +194,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 
 	k := n.PrivateKey
 
-	// TODO(peterj): Timeout duration should be a parameter.
-	eol := time.Now().Add(10 * time.Minute)
+	eol := time.Now().Add(duration)
 	err  = n.Namesys.PublishWithEOL(ctx, k, path, eol)
 
 	if err != nil {
@@ -206,7 +206,7 @@ func publish(ctx context.Context, n *core.IpfsNode, cid string) error {
 }
 
 //export go_ipfs_cache_publish
-func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+func go_ipfs_cache_publish(cid *C.char, seconds C.int64_t, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	id := C.GoString(cid)
 
 	go func() {
@@ -215,7 +215,8 @@ func go_ipfs_cache_publish(cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer
 			defer fmt.Println("go_ipfs_cache_publish end");
 		}
 
-		publish(g.ctx, g.node, id);
+        // https://stackoverflow.com/questions/17573190/how-to-multiply-duration-by-integer
+		publish(g.ctx, time.Duration(seconds) * time.Second, g.node, id);
 		C.execute_void_cb(fn, fn_arg)
 	}()
 }
