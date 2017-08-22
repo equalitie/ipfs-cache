@@ -41,7 +41,7 @@ and two example programs: _injector_ and _client_.
 ## Using the examples
 
 The _injector_ is a program which manipulates the IPFS key/value database. It does so
-by running a very simplistic HTTP server which listens to request for adding
+by running a very simplistic HTTP server which listens to requests for adding
 new _(key, value)_ pairs into the database.
 
 To start the injector listening on the TCP port 8080 start it as so:
@@ -104,6 +104,6 @@ run it as so:
 same PC, they need to start their IPFS services on different ports. Otherwise
 the program that executes later will not work properly. To make sure this
 holds, modify the `Addresses => Swarm` JSON entries in either _client's_ or
-_injector's_ `<PATH TO IPFS REPOSITOR>/config` file.
+_injector's_ `<PATH TO IPFS REPOSITORY>/config` file.
 
 
