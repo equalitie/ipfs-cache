@@ -1,48 +1,18 @@
 #include "db.h"
 #include "backend.h"
 #include "dispatch.h"
+#include "republisher.h"
 
 using namespace std;
 using namespace ipfs_cache;
 
-template<class F>
-static void download_database(Backend& backend, const string& ipns, F&& cb) {
-    backend.resolve(ipns, [&backend, cb = forward<F>(cb)](string ipfs_id) {
-        if (ipfs_id.size() == 0) {
-            cb(Db::Json());
-            return;
-        }
-
-        backend.cat(ipfs_id, [cb = move(cb)](string content) {
-            try {
-                cb(Db::Json::parse(content));
-            }
-            catch(...) {
-                cb(Db::Json());
-            }
-        });
-    });
-}
-
-template<class F>
-static void upload_database( Backend& backend
-                           , const Db::Json& json
-                           , F&& cb)
-{
-    backend.add(json.dump(),
-            [cb = forward<F>(cb), &backend](string db_ipfs_id) {
-                backend.publish( move(db_ipfs_id)
-                               , chrono::minutes(10)
-                               , move(cb));
-            });
-}
-
 Db::Db(Backend& backend, string ipns)
     : _ipns(move(ipns))
     , _backend(backend)
+    , _republisher(new Republisher(_backend))
     , _was_destroyed(make_shared<bool>(false))
 {
-    download_database(_backend, _ipns, [this](Json json) {
+    download_database(_ipns, [this](Json json) {
         on_db_update(move(json));
     });
 }
@@ -79,7 +49,7 @@ void Db::start_updating()
 
     auto last_i = --_upload_callbacks.end();
 
-    upload_database(_backend, _json, [this, last_i] {
+    upload_database(_json, [this, last_i] {
         _is_uploading = false;
 
         auto& cbs = _upload_callbacks;
@@ -96,6 +66,43 @@ void Db::start_updating()
 
         start_updating();
     });
+}
+
+template<class F>
+void Db::download_database(const string& ipns, F&& cb) {
+    auto d = _was_destroyed;
+
+    _backend.resolve(ipns, [this, cb = forward<F>(cb), d](string ipfs_id) {
+        if (*d) return;
+
+        if (ipfs_id.size() == 0) {
+            cb(Db::Json());
+            return;
+        }
+
+        _backend.cat(ipfs_id, [this, cb = move(cb), d](string content) {
+            if (*d) return;
+
+            try {
+                cb(Db::Json::parse(content));
+            }
+            catch(...) {
+                cb(Db::Json());
+            }
+        });
+    });
+}
+
+template<class F>
+void Db::upload_database(const Db::Json& json , F&& cb)
+{
+    auto d = _was_destroyed;
+
+    _backend.add(json.dump(),
+        [ this, cb = forward<F>(cb), d] (string db_ipfs_id) {
+            if (*d) return;
+            _republisher->publish(move(db_ipfs_id) , move(cb));
+        });
 }
 
 void Db::query(string key, function<void(string)> cb)

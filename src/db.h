@@ -9,6 +9,7 @@
 namespace ipfs_cache {
 
 class Backend;
+class Republisher;
 
 class Db {
 public:
@@ -29,12 +30,16 @@ private:
     void merge(const Json&);
     void start_updating();
 
+    template<class F> void download_database(const std::string&, F&&);
+    template<class F> void upload_database(const Db::Json&, F&&);
+
 private:
     bool _is_uploading = false;
     bool _had_download = false;
     Json _json;
     std::string _ipns;
     Backend& _backend;
+    std::unique_ptr<Republisher> _republisher;
     std::list<std::function<void()>> _upload_callbacks;
     std::queue<std::function<void()>> _queued_tasks;
     std::shared_ptr<bool> _was_destroyed;

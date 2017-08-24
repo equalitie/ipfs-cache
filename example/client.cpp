@@ -30,7 +30,7 @@ int main(int argc, const char** argv)
      */
     namespace po = boost::program_options;
 
-    po::options_description desc;
+    po::options_description desc("Options");
 
     desc.add_options()
         ("help", "Produce this help message")
