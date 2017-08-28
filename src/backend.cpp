@@ -1,5 +1,6 @@
 #include <ipfs_bindings.h>
 #include <assert.h>
+#include <mutex>
 
 #include "backend.h"
 #include "dispatch.h"
@@ -15,6 +16,7 @@ struct ipfs_cache::BackendImpl {
     // This prevents callbacks from being called once Backend is destroyed.
     bool was_destroyed;
     event_base* evbase;
+    mutex destruct_mutex;
 
     BackendImpl(event_base* evbase)
         : was_destroyed(false)
@@ -33,6 +35,8 @@ struct HandleVoid {
         auto evb  = impl->evbase;
 
         delete self;
+
+        lock_guard<mutex> guard(impl->destruct_mutex);
 
         if (impl->was_destroyed) return;
 
@@ -54,6 +58,8 @@ struct HandleData {
         auto evb  = impl->evbase;
 
         delete self;
+
+        lock_guard<mutex> guard(impl->destruct_mutex);
 
         if (impl->was_destroyed) return;
 
@@ -130,6 +136,7 @@ event_base* Backend::evbase() const
 
 Backend::~Backend()
 {
+    lock_guard<mutex> guard(_impl->destruct_mutex);
     _impl->was_destroyed = true;
     go_ipfs_cache_stop();
 }
