@@ -28,6 +28,7 @@ void Republisher::publish(const std::string& cid, std::function<void()> cb)
 void Republisher::start_publishing()
 {
     if (_callbacks.empty()) {
+        _is_publishing = false;
         _timer.start(publish_duration / 2, [this] {
             _callbacks.push_back(nullptr);
             start_publishing();
@@ -35,9 +36,8 @@ void Republisher::start_publishing()
         return;
     }
 
-    _timer.stop();
-
     _is_publishing = true;
+    _timer.stop();
 
     auto last_i = --_callbacks.end();
 
@@ -45,8 +45,6 @@ void Republisher::start_publishing()
         [this, d = _was_destroyed, last_i]
         {
             if (*d) return;
-
-            _is_publishing = false;
 
             while (true) {
                 bool is_last = last_i == _callbacks.begin();
