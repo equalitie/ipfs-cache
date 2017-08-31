@@ -48,6 +48,14 @@ add_library(ipfs-cache STATIC ${sources}
 
 add_dependencies(ipfs-cache json)
 
+# Append object files from  ipfs_bindings.a into libipfs-cache.a.
+add_custom_command(TARGET ipfs-cache
+    POST_BUILD
+    COMMAND cd ${BINDING_DIR}
+         && ar -x ipfs_bindings.a
+         && cd ${CMAKE_BINARY_DIR}
+         && ar -qc libipfs-cache.a ${BINDING_DIR}/*.o)
+
 ################################################################################
 project(client)
 
@@ -68,7 +76,6 @@ target_link_libraries(client
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
-    ${BINDING_DIR}/ipfs_bindings.a
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -91,7 +98,6 @@ target_link_libraries(injector
     event
     event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
-    ${BINDING_DIR}/ipfs_bindings.a
     ${Boost_LIBRARIES})
 
 ################################################################################
