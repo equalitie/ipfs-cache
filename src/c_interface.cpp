@@ -40,14 +40,14 @@ extern "C"
 void ipfs_cache_client_get_content(
         ipfs_cache_client* cc,
         const char* url,
-        void (*cb)(const char* /* content */, void* /* user_data */),
+        void (*cb)(const char* /* content */, size_t /* content_size */, void* /* user_data */),
         void* user_data)
 {
     auto c = (Client*) cc;
 
-    c->get_content(url, [cb, user_data](string content) {
+    c->get_content(url, [cb, user_data](vector<char> content) {
             if (!cb) return;
-            cb(content.data(), user_data);
+            cb(content.data(), content.size(), user_data);
     });
 }
 
@@ -92,13 +92,16 @@ void ipfs_cache_injector_insert_content(
         ipfs_cache_injector* c_inj,
         const char* key,
         const char* content,
+        size_t content_size,
         void(*cb)(const char* /* ipfs id */, void* /* user_data */),
         void* user_data)
 {
     auto inj = (Injector*) c_inj;
 
     // TODO: The copying in copy constructor of strings can be optimized away.
-    inj->insert_content(key, content, [cb, user_data](string ipfs_id) {
+    inj->insert_content( key
+                       , vector<char>(content, content + content_size)
+                       , [cb, user_data](string ipfs_id) {
         if (!cb) return;
         cb(ipfs_id.c_str(), user_data);
     });

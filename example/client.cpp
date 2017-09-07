@@ -88,8 +88,8 @@ int main(int argc, const char** argv)
         ipfs_cache::Client client(evbase, ipns, repo);
 
         cout << "Fetching..." << endl;
-        client.get_content(key, [&](string value) {
-                    cout << "Value:" << value << endl;
+        client.get_content(key, [&](vector<char> value) {
+                    cout << "Value:" << string(value.begin(), value.end()) << endl;
                     event_base_loopexit(evbase, NULL);
                 });
 

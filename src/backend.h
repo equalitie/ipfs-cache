@@ -2,6 +2,7 @@
 
 #include <event2/event.h>
 #include <string>
+#include <vector>
 #include <functional>
 #include <memory>
 #include <ipfs_cache/timer.h>
@@ -22,9 +23,9 @@ public:
     std::string ipns_id() const;
 
     void add(const uint8_t* data, size_t size, std::function<void(std::string)>);
-    void add(const std::string&, std::function<void(std::string)>); // Convenience function.
+    void add(const std::vector<char>&, std::function<void(std::string)>); // Convenience function.
 
-    void cat(const std::string& cid, std::function<void(std::string)>);
+    void cat(const std::string& cid, std::function<void(std::vector<char>)>);
     void publish(const std::string& cid, Timer::Duration, std::function<void()>);
     void resolve(const std::string& ipns_id, std::function<void(std::string)>);
 

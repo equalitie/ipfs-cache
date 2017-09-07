@@ -12,11 +12,11 @@ Client::Client(event_base* evbase, string ipns, string path_to_repo)
 {
 }
 
-void Client::get_content(string url, std::function<void(string)> cb)
+void Client::get_content(string url, std::function<void(vector<char>)> cb)
 {
     _db->query(url, [this, cb = move(cb)](string ipfs_id) {
          if (ipfs_id.empty()) {
-            return cb(move(ipfs_id));
+            return cb(vector<char>());
          }
 
         _backend->cat(ipfs_id, move(cb));

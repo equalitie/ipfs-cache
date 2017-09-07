@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <vector>
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -85,7 +86,9 @@ InjectorServer::handle(struct evhttp_request *req, void *arg)
         return;
     }
 
-    self->_injector.insert_content(key, value, [=](std::string ipfs_id) {
+    self->_injector.insert_content(key,
+                                   std::vector<char>(value, value + strlen(value)),
+                                   [=](std::string ipfs_id) {
         auto evb = evbuffer_new();
 
         evbuffer_add_printf(evb,

@@ -47,9 +47,10 @@ struct HandleVoid {
     }
 };
 
+template<class D>
 struct HandleData {
     shared_ptr<BackendImpl> impl;
-    function<void(string)> cb;
+    function<void(D)> cb;
 
     static void call(const char* data, size_t size, void* arg) {
         auto self = reinterpret_cast<HandleData*>(arg);
@@ -64,10 +65,10 @@ struct HandleData {
         if (impl->was_destroyed) return;
 
         dispatch(evb, [ cb   = move(cb)
-                      , s    = string(data, data + size)
+                      , d    = D(data, data + size)
                       , impl = move(impl)]() {
             if (impl->was_destroyed) return;
-            cb(move(s));
+            cb(move(d));
         });
     }
 };
@@ -104,29 +105,29 @@ void Backend::publish(const string& cid, Timer::Duration d, std::function<void()
 void Backend::resolve(const string& ipns_id, function<void(string)> cb)
 {
     go_ipfs_cache_resolve( (char*) ipns_id.data()
-                         , (void*) HandleData::call
-                         , (void*) new HandleData{_impl, move(cb)} );
+                         , (void*) HandleData<string>::call
+                         , (void*) new HandleData<string>{_impl, move(cb)} );
 }
 
 void Backend::add(const uint8_t* data, size_t size, function<void(string)> cb)
 {
     go_ipfs_cache_add( (void*) data, size
-                     , (void*) HandleData::call
-                     , (void*) new HandleData{_impl, move(cb)} );
+                     , (void*) HandleData<string>::call
+                     , (void*) new HandleData<string>{_impl, move(cb)} );
 }
 
-void Backend::add(const string& s, function<void(string)> cb)
+void Backend::add(const vector<char>& s, function<void(string)> cb)
 {
     add((const uint8_t*) s.data(), s.size(), move(cb));
 }
 
-void Backend::cat(const string& ipfs_id, function<void(string)> cb)
+void Backend::cat(const string& ipfs_id, function<void(vector<char>)> cb)
 {
     assert(ipfs_id.size() == CID_SIZE);
 
     go_ipfs_cache_cat( (char*) ipfs_id.data()
-                     , (void*) HandleData::call
-                     , (void*) new HandleData{_impl, move(cb)} );
+                     , (void*) HandleData<vector<char>>::call
+                     , (void*) new HandleData<vector<char>>{_impl, move(cb)} );
 }
 
 event_base* Backend::evbase() const

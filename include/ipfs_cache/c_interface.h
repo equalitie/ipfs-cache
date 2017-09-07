@@ -23,7 +23,9 @@ void ipfs_cache_client_delete(ipfs_cache_client*);
 void ipfs_cache_client_get_content(
         ipfs_cache_client*,
         const char* url,
-        void (*cb)(const char* /* content */, void* /* user_data */),
+        void (*cb)( const char* /* content */
+                  , size_t      /* content_size */
+                  , void*       /* user_data */),
         void* user_data);
 
 //--------------------------------------------------------------------
@@ -39,6 +41,7 @@ void ipfs_cache_injector_insert_content(
         ipfs_cache_injector*,
         const char* key,
         const char* content,
+        size_t content_size,
         void(*cb)(const char* /* ipfs id */, void* /* user_data */),
         void* user_data);
 

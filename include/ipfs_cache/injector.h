@@ -3,6 +3,7 @@
 #include <event2/event.h>
 #include <functional>
 #include <memory>
+#include <vector>
 #include <queue>
 
 namespace ipfs_cache {
@@ -29,7 +30,7 @@ public:
     // When testing or debugging, the content can be found here:
     // "https://ipfs.io/ipfs/" + <IPFS ID>
     void insert_content( std::string url
-                       , const std::string& content
+                       , const std::vector<char>& content
                        , std::function<void(std::string)>);
 
     ~Injector();

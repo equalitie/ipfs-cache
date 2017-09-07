@@ -80,7 +80,7 @@ void Db::download_database(const string& ipns, F&& cb) {
             return;
         }
 
-        _backend.cat(ipfs_id, [this, cb = move(cb), d](string content) {
+        _backend.cat(ipfs_id, [this, cb = move(cb), d](vector<char> content) {
             if (*d) return;
 
             try {
@@ -97,8 +97,9 @@ template<class F>
 void Db::upload_database(const Db::Json& json , F&& cb)
 {
     auto d = _was_destroyed;
+    auto dump = json.dump();
 
-    _backend.add(json.dump(),
+    _backend.add((uint8_t*) dump.data(), dump.size(),
         [ this, cb = forward<F>(cb), d] (string db_ipfs_id) {
             if (*d) return;
             _republisher->publish(move(db_ipfs_id) , move(cb));

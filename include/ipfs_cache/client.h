@@ -3,6 +3,7 @@
 #include <event2/event.h>
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace ipfs_cache {
 
@@ -22,7 +23,7 @@ public:
     // Basically it does this: Look into the database to find the IPFS_ID
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
-    void get_content(std::string url, std::function<void(std::string)>);
+    void get_content(std::string url, std::function<void(std::vector<char>)>);
 
     ~Client();
 
