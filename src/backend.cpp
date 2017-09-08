@@ -130,6 +130,16 @@ void Backend::cat(const string& ipfs_id, function<void(vector<char>)> cb)
                      , (void*) new HandleData<vector<char>>{_impl, move(cb)} );
 }
 
+void Backend::test_put()
+{
+    go_ipfs_cache_put_value();
+}
+
+void Backend::test_get()
+{
+    go_ipfs_cache_get_value();
+}
+
 event_base* Backend::evbase() const
 {
     return _impl->evbase;

@@ -27,6 +27,8 @@ public:
 
     ~Client();
 
+    void test_get_value();
+
 private:
     std::unique_ptr<Backend> _backend;
     std::unique_ptr<Db> _db;

@@ -36,4 +36,9 @@ void Injector::insert_content(string url, const vector<char>& content, function<
                    });
 }
 
+void Injector::test_put_value()
+{
+    _backend->test_put();
+}
+
 Injector::~Injector() {}

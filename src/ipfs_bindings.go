@@ -19,9 +19,10 @@ import (
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	config "github.com/ipfs/go-ipfs/repo/config"
 	path "github.com/ipfs/go-ipfs/path"
-	"github.com/ipfs/go-ipfs/core/coreunix"
-
+	namesys "github.com/ipfs/go-ipfs/namesys"
+	proto "gx/ipfs/QmZ4Qi3GaRbjcx28Sme5eMH7RQjGkt8wHxt2a65oLaeFEV/gogo-protobuf/proto"
 	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	"github.com/ipfs/go-ipfs/core/coreunix"
 )
 
 // #cgo CFLAGS: -DIN_GO=1 -ggdb
@@ -48,6 +49,7 @@ const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
 	debug = false
+    test_id = "QmaS1LvKz3Vi6y3jCis4kSKH8di422KnT685C2wtV3vkCw"
 )
 
 func main() {
@@ -278,3 +280,69 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 	}()
 }
 
+//export go_ipfs_cache_put_value
+func go_ipfs_cache_put_value() {
+    go func() {
+	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
+        defer cancel()
+
+        //key, err := peer.IDFromString()
+
+        //if err != nil {
+		//	fmt.Println("go_ipfs_cache_put_value failed generate key from string ", err)
+        //}
+
+        key_str := "/ipns/" + test_id //string(key)
+
+        k, err := g.node.GetKey("self")
+
+        if err != nil {
+			fmt.Println("go_ipfs_cache_put_value failed to get key ", err)
+        }
+
+	    eol := time.Now().Add(time.Duration(4) * time.Minute)
+	    entry, err := namesys.CreateRoutingEntryData(k, "foobar-valuee", 1, eol)
+
+        if err != nil {
+			fmt.Println("go_ipfs_cache_put_value failed to create entry ", err)
+        }
+
+
+	    data, err := proto.Marshal(entry)
+
+        if err != nil {
+			fmt.Println("go_ipfs_cache_put_value failed marshal ", err)
+        }
+
+        err = g.node.Routing.PutValue(timectx, key_str, data)
+
+        if err != nil {
+			fmt.Println("go_ipfs_cache_put_value failed ", err)
+        }
+    }()
+}
+
+//export go_ipfs_cache_get_value
+func go_ipfs_cache_get_value() {
+    go func() {
+	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
+        defer cancel()
+        //key, err := peer.IDFromString("012345678909123456789012345678901")
+
+        //if err != nil {
+		//	fmt.Println("go_ipfs_cache_get_value failed to IDFromString ", err)
+        //    return
+        //}
+
+        key_str := "/ipns/" + test_id // string(key)
+        val, err := g.node.Routing.GetValue(timectx, key_str)
+
+        if err != nil {
+			fmt.Println("go_ipfs_cache_get_value failed ", err)
+            return
+        }
+
+
+        fmt.Printf("go_ipfs_cache_get_value value: %q\n", val)
+    }()
+}

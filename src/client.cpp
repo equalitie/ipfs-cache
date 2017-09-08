@@ -23,4 +23,9 @@ void Client::get_content(string url, std::function<void(vector<char>)> cb)
     }); 
 }
 
+void Client::test_get_value()
+{
+    _backend->test_get();
+}
+
 Client::~Client() {}

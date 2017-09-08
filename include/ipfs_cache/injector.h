@@ -33,6 +33,8 @@ public:
                        , const std::vector<char>& content
                        , std::function<void(std::string)>);
 
+    void test_put_value();
+
     ~Injector();
 
 private:

@@ -33,6 +33,9 @@ public:
 
     ~Backend();
 
+    void test_put();
+    void test_get();
+
 private:
     std::shared_ptr<BackendImpl> _impl;
 };
