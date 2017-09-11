@@ -2,6 +2,7 @@
 #include <boost/program_options.hpp>
 #include <ipfs_cache/injector.h>
 #include <ipfs_cache/client.h>
+#include <ipfs_cache/timer.h>
 #include <signal.h>
 #include <event2/thread.h>
 
@@ -76,9 +77,17 @@ int main(int argc, const char** argv)
      * Create the injector and the server and start the main loop.
      */
     try {
+        using namespace std::chrono_literals;
+
         ipfs_cache::Injector injector(evbase, repo);
 
-        injector.test_put_value();
+        ipfs_cache::Timer timer(evbase);
+
+        cout << "Waiting 10 seconds for the injector to connnect to the network." << endl;
+
+        timer.start(10s, [&]() {
+                injector.test_put_value();
+                });
         //InjectorServer server(evbase, port, injector);
 
         //cout << "Listening on port " << server.listening_port() << endl;

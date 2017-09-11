@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ipfs_cache/injector.h>
 #include <ipfs_cache/client.h>
+#include <ipfs_cache/timer.h>
 #include <signal.h>
 #include <event2/thread.h>
 #include <boost/program_options.hpp>
@@ -83,12 +84,20 @@ int main(int argc, const char** argv)
     }
 
     try {
+        using namespace std::chrono_literals;
+
         cout << "Starting event loop, press Ctrl-C to exit." << endl;
 
         ipfs_cache::Client client(evbase, ipns, repo);
 
-        cout << "Fetching..." << endl;
-        client.test_get_value();
+        ipfs_cache::Timer timer(evbase);
+
+        cout << "Waiting 10 seconds for the client to connnect to the network." << endl;
+
+        timer.start(10s, [&]() {
+                cout << "Fetching..." << endl;
+                client.test_get_value();
+                });
         //client.get_content(key, [&](vector<char> value) {
         //            cout << "Value:" << string(value.begin(), value.end()) << endl;
         //            event_base_loopexit(evbase, NULL);

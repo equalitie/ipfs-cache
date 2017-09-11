@@ -14,6 +14,7 @@ import (
 	"time"
 	"io"
 	"io/ioutil"
+	"github.com/multiformats/go-multihash"
 	core "github.com/ipfs/go-ipfs/core"
 	repo "github.com/ipfs/go-ipfs/repo"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
@@ -49,8 +50,18 @@ const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
 	debug = false
-    test_id = "QmaS1LvKz3Vi6y3jCis4kSKH8di422KnT685C2wtV3vkCw"
 )
+
+func test_id() string {
+	m, err := multihash.Sum([]byte("foobar4254321335"), multihash.SHA2_256, -1)
+	if err != nil {
+		fmt.Println("Error creating test_id: ", err);
+		return ""
+	}
+	s := m.B58String()
+	fmt.Println(">>>>>>>>>>>>>>: ", s);
+	return s
+}
 
 func main() {
 }
@@ -217,7 +228,7 @@ func go_ipfs_cache_publish(cid *C.char, seconds C.int64_t, fn unsafe.Pointer, fn
 			defer fmt.Println("go_ipfs_cache_publish end");
 		}
 
-        // https://stackoverflow.com/questions/17573190/how-to-multiply-duration-by-integer
+		// https://stackoverflow.com/questions/17573190/how-to-multiply-duration-by-integer
 		publish(g.ctx, time.Duration(seconds) * time.Second, g.node, id);
 		C.execute_void_cb(fn, fn_arg)
 	}()
@@ -282,67 +293,55 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 
 //export go_ipfs_cache_put_value
 func go_ipfs_cache_put_value() {
-    go func() {
+	go func() {
 	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
-        defer cancel()
+		defer cancel()
 
-        //key, err := peer.IDFromString()
+		key_str := "/ipns/" + test_id()
 
-        //if err != nil {
-		//	fmt.Println("go_ipfs_cache_put_value failed generate key from string ", err)
-        //}
+		k, err := g.node.GetKey("self")
 
-        key_str := "/ipns/" + test_id //string(key)
-
-        k, err := g.node.GetKey("self")
-
-        if err != nil {
+		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed to get key ", err)
-        }
+		}
 
-	    eol := time.Now().Add(time.Duration(4) * time.Minute)
-	    entry, err := namesys.CreateRoutingEntryData(k, "foobar-valuee", 1, eol)
+	    eol := time.Now().Add(time.Duration(15) * time.Minute)
+	    entry, err := namesys.CreateRoutingEntryData(k, "my new test with delays", 4, eol)
 
-        if err != nil {
+		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed to create entry ", err)
-        }
+		}
 
 
 	    data, err := proto.Marshal(entry)
 
-        if err != nil {
+		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed marshal ", err)
-        }
+		}
 
-        err = g.node.Routing.PutValue(timectx, key_str, data)
+		err = g.node.Routing.PutValue(timectx, key_str, data)
 
-        if err != nil {
+		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed ", err)
-        }
-    }()
+		}
+	}()
 }
 
 //export go_ipfs_cache_get_value
 func go_ipfs_cache_get_value() {
-    go func() {
+	go func() {
 	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
-        defer cancel()
-        //key, err := peer.IDFromString("012345678909123456789012345678901")
+		defer cancel()
 
-        //if err != nil {
-		//	fmt.Println("go_ipfs_cache_get_value failed to IDFromString ", err)
-        //    return
-        //}
+		key_str := "/ipns/" + test_id()
+		val, err := g.node.Routing.GetValue(timectx, key_str)
 
-        key_str := "/ipns/" + test_id // string(key)
-        val, err := g.node.Routing.GetValue(timectx, key_str)
-
-        if err != nil {
+		if err != nil {
 			fmt.Println("go_ipfs_cache_get_value failed ", err)
-            return
-        }
+			return
+		}
 
 
-        fmt.Printf("go_ipfs_cache_get_value value: %q\n", val)
-    }()
+		fmt.Printf("go_ipfs_cache_get_value value: %q\n", val)
+	}()
 }
