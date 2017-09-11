@@ -294,7 +294,7 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 //export go_ipfs_cache_put_value
 func go_ipfs_cache_put_value() {
 	go func() {
-	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
+		timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
 		defer cancel()
 
 		key_str := "/ipns/" + test_id()
@@ -305,15 +305,15 @@ func go_ipfs_cache_put_value() {
 			fmt.Println("go_ipfs_cache_put_value failed to get key ", err)
 		}
 
-	    eol := time.Now().Add(time.Duration(15) * time.Minute)
-	    entry, err := namesys.CreateRoutingEntryData(k, "my new test with delays", 4, eol)
+		eol := time.Now().Add(time.Duration(15) * time.Minute)
+		entry, err := namesys.CreateRoutingEntryData(k, "my new test with delays", 4, eol)
 
 		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed to create entry ", err)
 		}
 
 
-	    data, err := proto.Marshal(entry)
+		data, err := proto.Marshal(entry)
 
 		if err != nil {
 			fmt.Println("go_ipfs_cache_put_value failed marshal ", err)
@@ -330,7 +330,7 @@ func go_ipfs_cache_put_value() {
 //export go_ipfs_cache_get_value
 func go_ipfs_cache_get_value() {
 	go func() {
-	    timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
+		timectx, cancel := context.WithTimeout(g.ctx, time.Minute)
 		defer cancel()
 
 		key_str := "/ipns/" + test_id()
