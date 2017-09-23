@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ipfs_cache/timer.h>
+#include <boost/asio/steady_timer.hpp>
 #include <string>
 #include <memory>
 #include <list>
@@ -31,7 +31,7 @@ private:
 private:
     std::shared_ptr<bool> _was_destroyed;
     Backend& _backend;
-    Timer _timer;
+    boost::asio::steady_timer _timer;
     bool _is_publishing = false;
     std::string _to_publish;
     std::list<std::function<void()>> _callbacks;

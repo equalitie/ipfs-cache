@@ -1,10 +1,13 @@
 #pragma once
 
-#include <event2/event.h>
 #include <functional>
 #include <memory>
 #include <vector>
 #include <queue>
+
+namespace boost { namespace asio {
+    class io_service;
+}}
 
 namespace ipfs_cache {
 
@@ -13,7 +16,7 @@ struct Db;
 
 class Injector {
 public:
-    Injector(event_base*, std::string path_to_repo);
+    Injector(boost::asio::io_service&, std::string path_to_repo);
 
     Injector(const Injector&) = delete;
     Injector& operator=(const Injector&) = delete;

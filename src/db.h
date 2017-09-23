@@ -1,10 +1,13 @@
 #pragma once
 
-#include <event2/event.h>
 #include <string>
 #include <queue>
 #include <list>
 #include <json.hpp>
+
+namespace boost { namespace asio {
+    class io_service;
+}}
 
 namespace ipfs_cache {
 
@@ -20,7 +23,7 @@ public:
     void update(std::string key, std::string value, std::function<void()>);
     void query(std::string key, std::function<void(std::string)>);
 
-    event_base* evbase() const;
+    boost::asio::io_service& get_io_service();
 
     ~Db();
 

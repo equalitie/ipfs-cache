@@ -6,8 +6,8 @@
 using namespace std;
 using namespace ipfs_cache;
 
-Client::Client(event_base* evbase, string ipns, string path_to_repo)
-    : _backend(new Backend(evbase, path_to_repo))
+Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
+    : _backend(new Backend(ios, path_to_repo))
     , _db(new Db(*_backend, ipns))
 {
 }

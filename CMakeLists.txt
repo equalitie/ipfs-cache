@@ -18,9 +18,19 @@ set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
 set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings")
 
 ################################################################################
+externalproject_add(beast
+  GIT_REPOSITORY https://github.com/inetic/beast
+  UPDATE_COMMAND ""
+  CONFIGURE_COMMAND ""
+  INSTALL_COMMAND ""
+  BUILD_COMMAND ""
+  PREFIX "beast")
+
+set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
+
+################################################################################
 project(ipfs-cache)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
 find_package(Threads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
@@ -59,7 +69,7 @@ add_custom_command(TARGET ipfs-cache
 ################################################################################
 project(client)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -81,10 +91,11 @@ target_link_libraries(client
 ################################################################################
 project(injector)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
+    "${BEAST_DIR}/include"
     "${CMAKE_SOURCE_DIR}/include")
 
 file(GLOB sources
@@ -92,7 +103,7 @@ file(GLOB sources
 
 add_executable(injector ${sources})
 
-add_dependencies(injector ipfs-cache)
+add_dependencies(injector ipfs-cache beast)
 
 target_link_libraries(injector
     event

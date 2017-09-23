@@ -1,9 +1,12 @@
 #pragma once
 
-#include <event2/event.h>
 #include <functional>
 #include <memory>
 #include <vector>
+
+namespace boost { namespace asio {
+    class io_service;
+}}
 
 namespace ipfs_cache {
 
@@ -12,7 +15,7 @@ struct Db;
 
 class Client {
 public:
-    Client(event_base*, std::string ipns, std::string path_to_repo);
+    Client(boost::asio::io_service&, std::string ipns, std::string path_to_repo);
 
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;

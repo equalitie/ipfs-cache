@@ -4,12 +4,17 @@
 using namespace std;
 using namespace ipfs_cache;
 
-static const Timer::Clock::duration publish_duration = chrono::minutes(10);
+namespace asio = boost::asio;
+namespace sys  = boost::system;
+
+using Timer = asio::steady_timer;
+using Clock = chrono::steady_clock;
+static const Timer::duration publish_duration = chrono::minutes(10);
 
 Republisher::Republisher(Backend& backend)
     : _was_destroyed(make_shared<bool>(false))
     , _backend(backend)
-    , _timer(_backend.evbase())
+    , _timer(_backend.get_io_service())
 {}
 
 void Republisher::publish(const std::string& cid, std::function<void()> cb)
@@ -29,15 +34,19 @@ void Republisher::start_publishing()
 {
     if (_callbacks.empty()) {
         _is_publishing = false;
-        _timer.start(publish_duration / 2, [this] {
-            _callbacks.push_back(nullptr);
-            start_publishing();
-        });
+        _timer.expires_from_now(publish_duration / 2);
+        _timer.async_wait(
+            [this, d = _was_destroyed] (sys::error_code ec) {
+                if (*d) return;
+                if (ec || _is_publishing) return;
+                _callbacks.push_back(nullptr);
+                start_publishing();
+            });
         return;
     }
 
     _is_publishing = true;
-    _timer.stop();
+    _timer.cancel();
 
     auto last_i = --_callbacks.end();
 

@@ -3,10 +3,10 @@
 #include <mutex>
 
 #include "backend.h"
-#include "dispatch.h"
 
 using namespace ipfs_cache;
 using namespace std;
+namespace asio = boost::asio;
 
 namespace {
     const uint32_t CID_SIZE = 46;
@@ -15,12 +15,12 @@ namespace {
 struct ipfs_cache::BackendImpl {
     // This prevents callbacks from being called once Backend is destroyed.
     bool was_destroyed;
-    event_base* evbase;
+    asio::io_service& ios;
     mutex destruct_mutex;
 
-    BackendImpl(event_base* evbase)
+    BackendImpl(asio::io_service& ios)
         : was_destroyed(false)
-        , evbase(evbase)
+        , ios(ios)
     {}
 };
 
@@ -32,7 +32,7 @@ struct HandleVoid {
         auto self = reinterpret_cast<HandleVoid*>(arg);
         auto cb   = move(self->cb);
         auto impl = move(self->impl);
-        auto evb  = impl->evbase;
+        auto& ios = impl->ios;
 
         delete self;
 
@@ -40,7 +40,7 @@ struct HandleVoid {
 
         if (impl->was_destroyed) return;
 
-        dispatch(evb, [cb = move(cb), impl = move(impl)]() {
+        ios.dispatch([cb = move(cb), impl = move(impl)]() {
             if (impl->was_destroyed) return;
             cb();
         });
@@ -56,7 +56,7 @@ struct HandleData {
         auto self = reinterpret_cast<HandleData*>(arg);
         auto cb   = move(self->cb);
         auto impl = move(self->impl);
-        auto evb  = impl->evbase;
+        auto& ios = impl->ios;
 
         delete self;
 
@@ -64,7 +64,7 @@ struct HandleData {
 
         if (impl->was_destroyed) return;
 
-        dispatch(evb, [ cb   = move(cb)
+        ios.dispatch( [ cb   = move(cb)
                       , d    = D(data, data + size)
                       , impl = move(impl)]() {
             if (impl->was_destroyed) return;
@@ -73,8 +73,8 @@ struct HandleData {
     }
 };
 
-Backend::Backend(event_base* evbase, const string& repo_path)
-    : _impl(make_shared<BackendImpl>(evbase))
+Backend::Backend(asio::io_service& ios, const string& repo_path)
+    : _impl(make_shared<BackendImpl>(ios))
 {
     bool started = go_ipfs_cache_start((char*) repo_path.data());
 
@@ -90,7 +90,7 @@ string Backend::ipns_id() const {
     return ret;
 }
 
-void Backend::publish(const string& cid, Timer::Duration d, std::function<void()> cb)
+void Backend::publish(const string& cid, Timer::duration d, std::function<void()> cb)
 {
     using namespace std::chrono;
 
@@ -130,9 +130,9 @@ void Backend::cat(const string& ipfs_id, function<void(vector<char>)> cb)
                      , (void*) new HandleData<vector<char>>{_impl, move(cb)} );
 }
 
-event_base* Backend::evbase() const
+boost::asio::io_service& Backend::get_io_service()
 {
-    return _impl->evbase;
+    return _impl->ios;
 }
 
 Backend::~Backend()

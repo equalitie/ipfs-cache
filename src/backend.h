@@ -1,20 +1,24 @@
 #pragma once
 
-#include <event2/event.h>
 #include <string>
 #include <vector>
 #include <functional>
 #include <memory>
-#include <ipfs_cache/timer.h>
+#include <boost/asio/steady_timer.hpp>
 
+namespace boost { namespace asio {
+    class io_service;
+}}
 
 namespace ipfs_cache {
 
 struct BackendImpl;
 
 class Backend {
+    using Timer = boost::asio::steady_timer;
+
 public:
-    Backend(event_base*, const std::string& repo_path);
+    Backend(boost::asio::io_service&, const std::string& repo_path);
 
     Backend(const Backend&) = delete;
     Backend& operator=(const Backend&) = delete;
@@ -26,10 +30,10 @@ public:
     void add(const std::vector<char>&, std::function<void(std::string)>); // Convenience function.
 
     void cat(const std::string& cid, std::function<void(std::vector<char>)>);
-    void publish(const std::string& cid, Timer::Duration, std::function<void()>);
+    void publish(const std::string& cid, Timer::duration, std::function<void()>);
     void resolve(const std::string& ipns_id, std::function<void(std::string)>);
 
-    event_base* evbase() const;
+    boost::asio::io_service& get_io_service();
 
     ~Backend();
 

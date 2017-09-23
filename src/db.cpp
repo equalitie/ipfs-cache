@@ -1,10 +1,13 @@
 #include "db.h"
 #include "backend.h"
-#include "dispatch.h"
 #include "republisher.h"
+
+#include <boost/asio/io_service.hpp>
 
 using namespace std;
 using namespace ipfs_cache;
+
+namespace asio = boost::asio;
 
 Db::Db(Backend& backend, string ipns)
     : _ipns(move(ipns))
@@ -116,7 +119,7 @@ void Db::query(string key, function<void(string)> cb)
     auto   v = _json[key];
     string s = v.is_string() ? v : "";
 
-    dispatch(evbase(), bind(move(cb), move(s)));
+    get_io_service().post(bind(move(cb), move(s)));
 }
 
 void Db::merge(const Json& remote_db)
@@ -149,8 +152,8 @@ void Db::replay_queued_tasks()
     }
 }
 
-event_base* Db::evbase() const {
-    return _backend.evbase();
+asio::io_service& Db::get_io_service() {
+    return _backend.get_io_service();
 }
 
 Db::~Db() {
