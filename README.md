@@ -53,7 +53,7 @@ Swarm listening on /ip4/<LAN-IP>/tcp/4002
 Swarm listening on /ip4/<WAN-IP>/tcp/35038
 Swarm listening on /ip4/<WAN-IP>/tcp/4002
 Swarm listening on /ip6/::1/tcp/4002
-Listening on port 8080
+Serving on port 0.0.0.0:8080
 IPNS of this database is <DATABASE IPNS>
 Starting event loop, press Ctrl-C to exit.
 ```

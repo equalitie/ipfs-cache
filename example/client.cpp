@@ -60,9 +60,11 @@ int main(int argc, const char** argv)
         ipfs_cache::Client client(ios, ipns, repo);
 
         cout << "Fetching..." << endl;
-        client.get_content(key, [&](string value) {
-                    cout << "Value:" << value << endl;
-                });
+
+        asio::spawn(ios, [&](asio::yield_context yield) {
+                string value = client.get_content(key, yield);
+                cout << "Value:" << value << endl;
+            });
 
         ios.run();
     }

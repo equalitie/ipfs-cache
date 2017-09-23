@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/asio/spawn.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -27,6 +28,8 @@ public:
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
     void get_content(std::string url, std::function<void(std::string)>);
+
+    std::string get_content(std::string url, boost::asio::yield_context);
 
     ~Client();
 

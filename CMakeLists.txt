@@ -69,7 +69,7 @@ add_custom_command(TARGET ipfs-cache
 ################################################################################
 project(client)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -91,7 +91,7 @@ target_link_libraries(client
 ################################################################################
 project(injector)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(

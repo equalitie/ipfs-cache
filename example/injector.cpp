@@ -5,6 +5,8 @@
 #include <ipfs_cache/client.h>
 #include <iostream>
 
+#include "parse_vars.h"
+
 using namespace std;
 
 namespace asio  = boost::asio;
@@ -16,52 +18,6 @@ using string_view = beast::string_view;
 using tcp = asio::ip::tcp;
 
 // -------------------------------------------------------------------
-// TODO: Seems Boost.Beast doesn't support url query decoding?
-namespace _parse_detail {
-    static string_view make_view(const char* b, const char* e)
-    {
-        return string_view(b, e - b);
-    }
-
-    static
-    const char* find(char c, const char* b, const char* e)
-    {
-        for (auto i = b; i != e; ++i) if (*i == c) return i;
-        return e;
-    }
-
-    static
-    pair<string_view, string_view>
-    parse_keyval(const char* b, const char* e)
-    {
-        auto p = find('=', b, e);
-        auto v = (p == e) ? make_view(e, e) : make_view(p + 1, e);
-        return make_pair(make_view(b, p), v);
-    }
-}
-
-static
-map<string_view, string_view> parse_vars(const string& vars)
-{
-    using namespace _parse_detail;
-
-    map<string_view, string_view> ret;
-
-    const char* b = vars.c_str();
-    const char* e = vars.c_str() + vars.size();
-
-    for (;;) {
-        auto p = find('&', b, e);
-        auto kv = parse_keyval(b, p);
-        ret.insert(kv);
-        if (p == e) break;
-        b = p + 1;
-    }
-
-    return ret;
-}
-
-// -------------------------------------------------------------------
 // Report a failure
 void fail(sys::error_code ec, char const* what)
 {
@@ -69,170 +25,93 @@ void fail(sys::error_code ec, char const* what)
 }
 
 // Handles an HTTP server connection
-class session : public enable_shared_from_this<session>
+void serve( tcp::socket socket
+          , ipfs_cache::Injector& injector
+          , asio::yield_context yield)
 {
-public:
-    // Take ownership of the socket
-    explicit session( tcp::socket socket
-                    , ipfs_cache::Injector& injector)
-        : _socket(move(socket))
-        , _injector(injector)
-    { }
+    sys::error_code ec;
 
-    // Start the asynchronous operation
-    void run()
-    {
-        do_read();
+    boost::beast::flat_buffer buffer;
+    http::request<http::string_body> req;
+
+    // Read a request
+    http::async_read(socket, buffer, req, yield[ec]);
+    if (ec) return fail(ec, "http::async_read");
+
+    auto vars = parse_vars(req.body());
+
+    auto key   = vars["key"]  .to_string();
+    auto value = vars["value"].to_string();
+
+    if (key.empty() || value.empty()) {
+        http::response<http::string_body> res
+            { http::status::bad_request
+            , req.version()};
+
+        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http::field::content_type, "text/plain");
+        res.body() = "FAIL";
+        res.prepare_payload();
+
+        http::async_write(socket, res, yield[ec]);
+        return;
     }
 
-    void do_read()
-    {
-        // Read a request
-        http::async_read(_socket, _buffer, _req,
-            [this, s = shared_from_this()]
-            (sys::error_code ec, size_t) {
-                on_read(ec);
-            });
-    }
+    string ipfs_id = injector.insert_content(key, value, yield[ec]);
+    if (ec) return fail(ec, "insert_content");
 
-    void on_read(boost::system::error_code ec)
-    {
-        // This means they closed the connection
-        if (ec == http::error::end_of_stream) return do_close();
-        if (ec) return fail(ec, "read");
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+    res.set(http::field::content_type, "text/plain");
+    res.body() = "OK";
+    res.keep_alive(req.keep_alive());
+    res.prepare_payload();
 
-        auto vars = parse_vars(_req.body());
-
-        auto key   = vars["key"];
-        auto value = vars["value"];
-
-        if (key.empty() || value.empty()) {
-            http::response<http::string_body> res
-                { http::status::bad_request
-                , _req.version()};
-
-            res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-            res.set(http::field::content_type, "text/plain");
-            res.body() = "FAIL";
-            res.prepare_payload();
-
-            return send(move(res));
-        }
-
-        _injector.insert_content( key.to_string()
-                                , value.to_string(),
-                                 [=, s = shared_from_this()]
-                                 (std::string ipfs_id) {
-            http::response<http::string_body> res{http::status::ok, _req.version()};
-            res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-            res.set(http::field::content_type, "text/plain");
-            res.body() = "OK";
-            res.keep_alive(_req.keep_alive());
-            res.prepare_payload();
-
-            send(move(res));
-        });
-
-    }
-
-    template<class Res> void send(Res res)
-    {
-        auto sp = make_shared<Res>(move(res));
-
-        http::async_write(
-            _socket,
-            *sp,
-            [this, s = shared_from_this(), sp]
-            (sys::error_code ec, size_t) {
-                if (ec == http::error::end_of_stream) return do_close();
-                if (ec) return fail(ec, "write");
-
-                do_read();
-            });
-    }
-
-    void do_close()
-    {
-        // Send a TCP shutdown
-        boost::system::error_code ec;
-        _socket.shutdown(tcp::socket::shutdown_send, ec);
-
-        // At this point the connection is closed gracefully
-    }
-
-private:
-    tcp::socket _socket;
-    boost::beast::flat_buffer _buffer;
-    http::request<http::string_body> _req;
-    ipfs_cache::Injector& _injector;
-};
+    http::async_write(socket, res, yield[ec]);
+    if (ec) fail(ec, "http::async_write");
+}
 
 // Accepts incoming connections and launches the sessions
-class listener : public enable_shared_from_this<listener> {
-public:
-    listener( boost::asio::io_service& ios
-            , uint16_t port
-            , ipfs_cache::Injector& injector)
-        : _acceptor(ios)
-        , _socket(ios)
-        , _injector(injector)
-    {
-        sys::error_code ec;
+static
+void accept( asio::io_service& ios
+           , uint16_t port
+           , ipfs_cache::Injector& injector
+           , asio::yield_context yield)
+{
+    tcp::acceptor acceptor{ios};
 
-        auto address = asio::ip::address::from_string("0.0.0.0");
-        tcp::endpoint endpoint{address, port};
+    sys::error_code ec;
 
-        // Open the acceptor
-        _acceptor.open(endpoint.protocol(), ec);
-        if (ec) {
-            fail(ec, "open");
-            return;
-        }
+    auto address = asio::ip::address::from_string("0.0.0.0");
+    tcp::endpoint endpoint{address, port};
 
-        // Bind to the server address
-        _acceptor.bind(endpoint, ec);
-        if (ec) {
-            fail(ec, "bind");
-            return;
-        }
+    // Open the acceptor
+    acceptor.open(endpoint.protocol(), ec);
+    if (ec) return fail(ec, "open");
 
-        cout << "Listening on port " << _acceptor.local_endpoint().port() << endl;
+    // Bind to the server address
+    acceptor.bind(endpoint, ec);
+    if (ec) return fail(ec, "bind");
 
-        // Start listening for connections
-        _acceptor.listen(asio::socket_base::max_connections, ec);
-        if (ec) {
-            fail(ec, "listen");
-            return;
-        }
+    cout << "Serving on " << acceptor.local_endpoint() << endl;
+
+    // Start listening for connections
+    acceptor.listen(asio::socket_base::max_connections, ec);
+    if (ec) return fail(ec, "listen");
+
+    tcp::socket socket{ios};
+
+    for (;;) {
+        acceptor.async_accept(socket, yield[ec]);
+        if (ec) return fail(ec, "accept");
+
+        asio::spawn( yield
+                   , [s = move(socket), &injector]
+                     (auto yield) mutable {
+                         serve(move(s), injector, yield);
+                     });
     }
-
-    // Start accepting incoming connections
-    void run()
-    {
-        if (!_acceptor.is_open()) return;
-        do_accept();
-    }
-
-    void do_accept()
-    {
-        _acceptor.async_accept(
-            _socket,
-            [this, self = shared_from_this()] (sys::error_code ec) {
-                if (ec) return fail(ec, "accept");
-
-                // Create the session and run it
-                make_shared<session>(move(_socket), _injector)->run();
-
-                // Accept another connection
-                do_accept();
-            });
-    }
-
-private:
-    tcp::acceptor _acceptor;
-    tcp::socket _socket;
-    ipfs_cache::Injector& _injector;
-};
+}
 
 int main(int argc, const char** argv)
 {
@@ -270,10 +149,14 @@ int main(int argc, const char** argv)
      */
     try {
         ipfs_cache::Injector injector(ios, repo);
-        make_shared<listener>(ios, port, injector)->run();
 
         cout << "IPNS of this database is " << injector.ipns_id() << endl;
         cout << "Starting event loop, press Ctrl-C to exit." << endl;
+
+        asio::spawn( ios
+                   , [&](asio::yield_context yield) {
+                         accept(ios, port, injector, yield);
+                     });
 
         ios.run();
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/asio/spawn.hpp>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -34,6 +35,10 @@ public:
     void insert_content( std::string url
                        , const std::string& content
                        , std::function<void(std::string)>);
+
+    std::string insert_content( std::string url
+                              , const std::string& content
+                              , boost::asio::yield_context);
 
     ~Injector();
 
