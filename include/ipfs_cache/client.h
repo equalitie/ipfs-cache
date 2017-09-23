@@ -2,7 +2,7 @@
 
 #include <functional>
 #include <memory>
-#include <vector>
+#include <string>
 
 namespace boost { namespace asio {
     class io_service;
@@ -26,7 +26,7 @@ public:
     // Basically it does this: Look into the database to find the IPFS_ID
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
-    void get_content(std::string url, std::function<void(std::vector<char>)>);
+    void get_content(std::string url, std::function<void(std::string)>);
 
     ~Client();
 

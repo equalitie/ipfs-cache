@@ -60,8 +60,8 @@ int main(int argc, const char** argv)
         ipfs_cache::Client client(ios, ipns, repo);
 
         cout << "Fetching..." << endl;
-        client.get_content(key, [&](vector<char> value) {
-                    cout << "Value:" << string(value.begin(), value.end()) << endl;
+        client.get_content(key, [&](string value) {
+                    cout << "Value:" << value << endl;
                 });
 
         ios.run();

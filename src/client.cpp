@@ -12,11 +12,11 @@ Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
 {
 }
 
-void Client::get_content(string url, std::function<void(vector<char>)> cb)
+void Client::get_content(string url, std::function<void(string)> cb)
 {
     _db->query(url, [this, cb = move(cb)](string ipfs_id) {
          if (ipfs_id.empty()) {
-            return cb(vector<char>());
+            return cb(move(ipfs_id));
          }
 
         _backend->cat(ipfs_id, move(cb));

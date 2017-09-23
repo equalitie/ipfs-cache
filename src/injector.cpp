@@ -24,7 +24,7 @@ string Injector::ipns_id() const
     return _backend->ipns_id();
 }
 
-void Injector::insert_content(string url, const vector<char>& content, function<void(string)> cb)
+void Injector::insert_content(string url, const string& content, function<void(string)> cb)
 {
     _backend->add( content
                  , [this, url = move(url), cb = move(cb)] (string ipfs_id) {

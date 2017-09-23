@@ -119,10 +119,8 @@ public:
             return send(move(res));
         }
 
-        auto v = value.to_string();
-
         _injector.insert_content( key.to_string()
-                                , std::vector<char>(v.begin(), v.end()),
+                                , value.to_string(),
                                  [=, s = shared_from_this()]
                                  (std::string ipfs_id) {
             http::response<http::string_body> res{http::status::ok, _req.version()};

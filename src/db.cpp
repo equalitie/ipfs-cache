@@ -83,7 +83,7 @@ void Db::download_database(const string& ipns, F&& cb) {
             return;
         }
 
-        _backend.cat(ipfs_id, [this, cb = move(cb), d](vector<char> content) {
+        _backend.cat(ipfs_id, [this, cb = move(cb), d](string content) {
             if (*d) return;
 
             try {
