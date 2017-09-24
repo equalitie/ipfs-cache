@@ -9,7 +9,7 @@ A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
 * [`libevent`](http://libevent.org/) 2.0+
 * `cmake` 3.5+
 * `g++` capable of C++14
-* The [Boost library](http://www.boost.org/) if you want to build the example apps
+* The [Boost library](http://www.boost.org/)
 
 ## Building
 

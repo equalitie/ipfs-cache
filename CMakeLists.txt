@@ -31,6 +31,7 @@ set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
 ################################################################################
 project(ipfs-cache)
 
+find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
 find_package(Threads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
