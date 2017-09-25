@@ -15,9 +15,7 @@ Db::Db(Backend& backend, string ipns)
     , _republisher(new Republisher(_backend))
     , _was_destroyed(make_shared<bool>(false))
 {
-    download_database(_ipns, [this](Json json) {
-        on_db_update(move(json));
-    });
+    start_db_download();
 }
 
 void Db::update(string key, string value, function<void()> cb)
@@ -129,6 +127,13 @@ void Db::merge(const Json& remote_db)
     }
 }
 
+void Db::start_db_download()
+{
+    download_database(_ipns, [this](Json json) {
+        on_db_update(move(json));
+    });
+}
+
 void Db::on_db_update(Json&& json)
 {
     merge(json);
@@ -137,6 +142,16 @@ void Db::on_db_update(Json&& json)
         _had_download = true;
         replay_queued_tasks();
     }
+
+    // TODO: The 't' should be a member so it can be destroyed (canceled)
+    // in the destructor.
+    auto d = _was_destroyed;
+    auto t = make_shared<boost::asio::steady_timer>(_backend.get_io_service());
+    t->expires_from_now(std::chrono::seconds(5));
+    t->async_wait([this, t,d](boost::system::error_code ec) {
+            if (*d) return;
+            start_db_download();
+        });
 }
 
 void Db::replay_queued_tasks()

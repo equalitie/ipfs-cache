@@ -28,6 +28,7 @@ public:
     ~Db();
 
 private:
+    void start_db_download();
     void on_db_update(Json&& json);
     void replay_queued_tasks();
     void merge(const Json&);
