@@ -4,11 +4,19 @@ A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
 
 ## Requirements
 
+To be able to use the IPFS Cache in platforms like Android, where running IPFS as an
+independent daemon is not a possibility, the wrapper needs to embed IPFS by linking
+directly with its Go code.  Thus the source of go-ipfs is needed to build the main
+glue between C++ and IPFS.  Building that source requires a recent version of Go.  To
+avoid extra system dependencies, the build process automatically downloads the Go
+system and builds IPFS itself.
+
+In summary, the only build dependencies are:
+
 * `cmake` 3.5+
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
 
-Other dependencies will be downloaded automatically through the build process.
 ## Building
 
 ```
