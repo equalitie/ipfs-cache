@@ -29,6 +29,33 @@ externalproject_add(beast
 set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
 
 ################################################################################
+externalproject_add(golang
+    URL https://storage.googleapis.com/golang/go1.9.linux-amd64.tar.gz
+    BUILD_COMMAND ""
+    UPDATE_COMMAND ""
+    CONFIGURE_COMMAND ""
+    INSTALL_COMMAND ""
+    PREFIX golang)
+
+set(GOROOT "${CMAKE_BINARY_DIR}/golang/src/golang")
+set(GOPATH "${CMAKE_BINARY_DIR}/gopath")
+
+################################################################################
+externalproject_add(ipfs
+    DOWNLOAD_COMMAND mkdir -p ${GOPATH}
+                  && export GOPATH=${GOPATH}
+                  && export PATH=$ENV{PATH}:${GOROOT}/bin
+                  && go get -u -d github.com/ipfs/go-ipfs
+    DEPENDS golang
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND export GOPATH=${GOPATH}
+               && export PATH=$ENV{PATH}:${GOROOT}/bin
+               && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
+               && make install
+    INSTALL_COMMAND ""
+    PREFIX "ipfs")
+
+################################################################################
 project(ipfs-cache)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
@@ -48,6 +75,8 @@ add_custom_command(
     DEPENDS ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
+         && export GOPATH=${GOPATH}
+         && export PATH=$ENV{PATH}:${GOROOT}/bin
          && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
@@ -57,7 +86,7 @@ add_library(ipfs-cache STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
     ${BINDING_DIR}/ipfs_bindings.a)
 
-add_dependencies(ipfs-cache json)
+add_dependencies(ipfs-cache json ipfs)
 
 # Append object files from  ipfs_bindings.a into libipfs-cache.a.
 add_custom_command(TARGET ipfs-cache

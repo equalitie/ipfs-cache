@@ -4,28 +4,12 @@ A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
 
 ## Requirements
 
-* The [`Go` 1.8+ language](https://golang.org/doc/install)
-* `go-ipfs` [sources](https://github.com/ipfs/go-ipfs)
-* [`libevent`](http://libevent.org/) 2.0+
 * `cmake` 3.5+
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
 
+Other dependencies will be downloaded automatically through the build process.
 ## Building
-
-### Build Go and go-ipfs
-
-To install the Go language and go-ipfs, set up your GOPATH environment
-variable to point to a directory where all your `go-ipfs` source files will go.
-E.g.
-
-```
-$ export GOPATH=$HOME/go
-```
-
-And THEN follow [these instructions](https://github.com/ipfs/go-ipfs#build-from-source).
-
-### Build ipfs-cache
 
 ```
 $ cd <PROJECT ROOT>
