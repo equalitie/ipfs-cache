@@ -44,11 +44,13 @@ set(GOPATH "${CMAKE_BINARY_DIR}/gopath")
 externalproject_add(ipfs
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
                   && export GOPATH=${GOPATH}
+                  && export GOROOT=${GOROOT}
                   && export PATH=$ENV{PATH}:${GOROOT}/bin
                   && go get -u -d github.com/ipfs/go-ipfs
     DEPENDS golang
     CONFIGURE_COMMAND ""
     BUILD_COMMAND export GOPATH=${GOPATH}
+               && export GOROOT=${GOROOT}
                && export PATH=$ENV{PATH}:${GOROOT}/bin
                && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
                && make install
@@ -76,6 +78,7 @@ add_custom_command(
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
+         && export GOROOT=${GOROOT}
          && export PATH=$ENV{PATH}:${GOROOT}/bin
          && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
