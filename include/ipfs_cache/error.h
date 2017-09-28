@@ -8,8 +8,28 @@
 
 namespace ipfs_cache { namespace error {
 
+    struct ipfs_error {
+        int error_number;
+    };
+    
     enum error_t {
         key_not_found,
+    };
+    
+    struct ipfs_category : public boost::system::error_category
+    {
+        const char* name() const noexcept override
+        {
+            return "ipfs_errors";
+        }
+    
+        std::string message(int e) const
+        {
+            switch (e) {
+                default:
+                    return "unknown ipfs error";
+            }
+        }
     };
     
     struct ipfs_cache_category : public boost::system::error_category
@@ -29,6 +49,14 @@ namespace ipfs_cache { namespace error {
             }
         }
     };
+    
+    inline
+    boost::system::error_code
+    make_error_code(::ipfs_cache::error::ipfs_error e)
+    {
+        static ipfs_category c;
+        return boost::system::error_code(static_cast<int>(e.error_number), c);
+    }
     
     inline
     boost::system::error_code
