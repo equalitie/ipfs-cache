@@ -12,7 +12,7 @@ namespace ipfs_cache { namespace error {
         key_not_found,
     };
     
-    struct category : public boost::system::error_category
+    struct ipfs_cache_category : public boost::system::error_category
     {
         const char* name() const noexcept override
         {
@@ -34,7 +34,7 @@ namespace ipfs_cache { namespace error {
     boost::system::error_code
     make_error_code(::ipfs_cache::error::error_t e)
     {
-        static category c;
+        static ipfs_cache_category c;
         return boost::system::error_code(static_cast<int>(e), c);
     }
 
