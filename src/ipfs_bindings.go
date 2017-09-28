@@ -34,13 +34,13 @@ import (
 //// (Or errors saying functions are defined more than once if the're not static).
 //
 //#if IN_GO
-//static void execute_void_cb(void* func, void* arg)
+//static void execute_void_cb(void* func, int err, void* arg)
 //{
-//    ((void(*)(void*)) func)(arg);
+//    ((void(*)(void*)) func)(arg);  // XXXX TODO pass err as 1st arg
 //}
-//static void execute_data_cb(void* func, void* data, size_t size, void* arg)
+//static void execute_data_cb(void* func, int err, void* data, size_t size, void* arg)
 //{
-//    ((void(*)(char*, size_t, void*)) func)(data, size, arg);
+//    ((void(*)(char*, size_t, void*)) func)(data, size, arg);  // XXXX TODO pass err as 1st arg
 //}
 //#endif // if IN_GO
 import "C"
@@ -160,7 +160,7 @@ func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 		node, err := core.Resolve(ctx, n.Namesys, n.Resolver, p)
 
 		if err != nil {
-			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			C.execute_data_cb(fn, C.IPFS_RESOLVE_FAILED, nil, C.size_t(0), fn_arg)
 			return
 		}
 
@@ -168,7 +168,7 @@ func go_ipfs_cache_resolve(c_ipns_id *C.char, fn unsafe.Pointer, fn_arg unsafe.P
 		cdata := C.CBytes(data)
 		defer C.free(cdata)
 
-		C.execute_data_cb(fn, cdata, C.size_t(len(data)), fn_arg)
+		C.execute_data_cb(fn, C.IPFS_SUCCESS, cdata, C.size_t(len(data)), fn_arg)
 	}()
 }
 
@@ -218,7 +218,7 @@ func go_ipfs_cache_publish(cid *C.char, seconds C.int64_t, fn unsafe.Pointer, fn
 
         // https://stackoverflow.com/questions/17573190/how-to-multiply-duration-by-integer
 		publish(g.ctx, time.Duration(seconds) * time.Second, g.node, id);
-		C.execute_void_cb(fn, fn_arg)
+		C.execute_void_cb(fn, C.IPFS_SUCCESS, fn_arg)
 	}()
 }
 
@@ -236,14 +236,14 @@ func go_ipfs_cache_add(data unsafe.Pointer, size C.size_t, fn unsafe.Pointer, fn
 
 		if err != nil {
 			fmt.Println("Error: failed to insert content ", err)
-			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			C.execute_data_cb(fn, C.IPFS_ADD_FAILED, nil, C.size_t(0), fn_arg)
 			return;
 		}
 
 		cdata := C.CBytes([]byte(cid))
 		defer C.free(cdata)
 
-		C.execute_data_cb(fn, cdata, C.size_t(len(cid)), fn_arg)
+		C.execute_data_cb(fn, C.IPFS_SUCCESS, cdata, C.size_t(len(cid)), fn_arg)
 	}()
 }
 
@@ -261,21 +261,21 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 
 		if err != nil {
 			fmt.Println("go_ipfs_cache_cat failed to Cat");
-			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			C.execute_data_cb(fn, C.IPFS_CAT_FAILED, nil, C.size_t(0), fn_arg)
 			return
 		}
 
 		bytes, err := ioutil.ReadAll(reader)
 		if err != nil {
 			fmt.Println("go_ipfs_cache_cat failed to read");
-			C.execute_data_cb(fn, nil, C.size_t(0), fn_arg)
+			C.execute_data_cb(fn, C.IPFS_READ_FAILED, nil, C.size_t(0), fn_arg)
 			return
 		}
 
 		cdata := C.CBytes(bytes)
 		defer C.free(cdata)
 
-		C.execute_data_cb(fn, cdata, C.size_t(len(bytes)), fn_arg)
+		C.execute_data_cb(fn, C.IPFS_SUCCESS, cdata, C.size_t(len(bytes)), fn_arg)
 	}()
 }
 

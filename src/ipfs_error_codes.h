@@ -6,7 +6,9 @@
 #define GUARD_ipfs_error_codes_h
 
 #define IPFS_SUCCESS          0
-#define IPFS_CAT_FAILED       42  // XXXX provisional
-#define IPFS_CAT_READ_FAILED  43  // XXXX provisional
+#define IPFS_RESOLVE_FAILED   1  // failed to resolve IPNS entry
+#define IPFS_ADD_FAILED       2  // failed to add data
+#define IPFS_CAT_FAILED       3  // failed to get data reader
+#define IPFS_READ_FAILED      4  // failed to read data
 
 #endif  // ndef GUARD_ipfs_error_codes_h
