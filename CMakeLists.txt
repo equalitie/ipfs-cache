@@ -84,6 +84,7 @@ add_custom_command(
          && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
+  "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
 add_library(ipfs-cache STATIC ${sources}
