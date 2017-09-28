@@ -2,6 +2,7 @@
 
 #include <string>
 #include <boost/system/error_code.hpp>
+#include "ipfs_error_codes.h"
 
 // Inspired by this post
 // http://breese.github.io/2016/06/18/unifying-error-codes.html
@@ -26,6 +27,16 @@ namespace ipfs_cache { namespace error {
         std::string message(int e) const
         {
             switch (e) {
+                case IPFS_SUCCESS:
+                    return "success";
+                case IPFS_RESOLVE_FAILED:
+                    return "failed to resolve IPNS entry";
+                case IPFS_ADD_FAILED:
+                    return "failed to add data";
+                case IPFS_CAT_FAILED:
+                    return "failed to get data reader";
+                case IPFS_READ_FAILED:
+                    return "failed to read data";
                 default:
                     return "unknown ipfs error";
             }
