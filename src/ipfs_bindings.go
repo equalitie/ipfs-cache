@@ -36,11 +36,11 @@ import (
 //#if IN_GO
 //static void execute_void_cb(void* func, int err, void* arg)
 //{
-//    ((void(*)(void*)) func)(arg);  // XXXX TODO pass err as 1st arg
+//    ((void(*)(int, void*)) func)(err, arg);
 //}
 //static void execute_data_cb(void* func, int err, void* data, size_t size, void* arg)
 //{
-//    ((void(*)(char*, size_t, void*)) func)(data, size, arg);  // XXXX TODO pass err as 1st arg
+//    ((void(*)(int, char*, size_t, void*)) func)(err, data, size, arg);
 //}
 //#endif // if IN_GO
 import "C"

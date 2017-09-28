@@ -28,7 +28,7 @@ struct HandleVoid {
     shared_ptr<BackendImpl> impl;
     function<void()> cb;
 
-    static void call(void* arg) {
+    static void call(int err, void* arg) {
         auto self = reinterpret_cast<HandleVoid*>(arg);
         auto cb   = move(self->cb);
         auto impl = move(self->impl);
@@ -40,7 +40,7 @@ struct HandleVoid {
 
         if (impl->was_destroyed) return;
 
-        ios.dispatch([cb = move(cb), impl = move(impl)]() {
+        ios.dispatch([cb = move(cb), impl = move(impl)]() {  // XXXX TODO use and pass err
             if (impl->was_destroyed) return;
             cb();
         });
@@ -51,7 +51,7 @@ struct HandleData {
     shared_ptr<BackendImpl> impl;
     function<void(string)> cb;
 
-    static void call(const char* data, size_t size, void* arg) {
+    static void call(int err, const char* data, size_t size, void* arg) {
         auto self = reinterpret_cast<HandleData*>(arg);
         auto cb   = move(self->cb);
         auto impl = move(self->impl);
@@ -63,7 +63,7 @@ struct HandleData {
 
         if (impl->was_destroyed) return;
 
-        ios.dispatch( [ cb   = move(cb)
+        ios.dispatch( [ cb   = move(cb)  // XXXX TODO use and pass err
                       , s    = string(data, data + size)
                       , impl = move(impl)]() {
             if (impl->was_destroyed) return;
