@@ -25,16 +25,16 @@ string Injector::ipns_id() const
     return _backend->ipns_id();
 }
 
-void Injector::insert_content(string url, const string& content, function<void(string)> cb)
+void Injector::insert_content(string url, const string& content, function<void(sys::error_code, string)> cb)
 {
     _backend->add( content
-                 , [this, url = move(url), cb = move(cb)] (sys::error_code ec, string ipfs_id) {
+                 , [this, url = move(url), cb = move(cb)] (sys::error_code eca, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
 
                         _db->update( move(url)
                                    , move(ipfs_id)
-                                   , [cb = move(cb), ipfs_id = move(ipfs_id_)] {
-                                         cb(ipfs_id);
+                                   , [cb = move(cb), ipfs_id = move(ipfs_id_)] (sys::error_code ecu) {
+                                         cb(ecu, ipfs_id);
                                      });
                    });
 }
@@ -48,8 +48,8 @@ string Injector::insert_content(string url, const string& content, asio::yield_c
     handler_type handler(yield);
     asio::async_result<handler_type> result(handler);
 
-    insert_content(move(url), content, [h = move(handler)](string v) mutable {
-            h(sys::error_code(), move(v));
+    insert_content(move(url), content, [h = move(handler)] (sys::error_code ec, string v) mutable {
+            h(ec, move(v));
         });
 
     return result.get();

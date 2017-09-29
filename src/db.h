@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/system/error_code.hpp>
 #include <string>
 #include <queue>
 #include <list>
@@ -20,7 +21,8 @@ public:
 
     Db(Backend&, std::string ipns);
 
-    void update(std::string key, std::string value, std::function<void()>);
+    void update( std::string key, std::string value
+               , std::function<void(boost::system::error_code)>);
     void query(std::string key, std::function<void(std::string)>);
 
     boost::asio::io_service& get_io_service();
@@ -44,7 +46,7 @@ private:
     std::string _ipns;
     Backend& _backend;
     std::unique_ptr<Republisher> _republisher;
-    std::list<std::function<void()>> _upload_callbacks;
+    std::list<std::function<void(boost::system::error_code)>> _upload_callbacks;
     std::queue<std::function<void()>> _queued_tasks;
     std::shared_ptr<bool> _was_destroyed;
 };

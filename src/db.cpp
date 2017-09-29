@@ -19,7 +19,7 @@ Db::Db(Backend& backend, string ipns)
     start_db_download();
 }
 
-void Db::update(string key, string value, function<void()> cb)
+void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
     if (!_had_download) {
         return _queued_tasks.push(bind(&Db::update
@@ -51,7 +51,7 @@ void Db::start_updating()
 
     auto last_i = --_upload_callbacks.end();
 
-    upload_database(_json, [this, last_i] {
+    upload_database(_json, [this, last_i] (sys::error_code ec) {
         _is_uploading = false;
 
         auto& cbs = _upload_callbacks;
@@ -61,7 +61,7 @@ void Db::start_updating()
             bool is_last = cbs.begin() == last_i;
             auto cb = move(cbs.front());
             cbs.erase(cbs.begin());
-            cb();
+            cb(ec);
             if (*destroyed) return;
             if (is_last) break;
         }
