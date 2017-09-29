@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace boost { namespace asio {
     class io_service;

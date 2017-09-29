@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/spawn.hpp>
+#include <boost/system/error_code.hpp>
 #include <functional>
 #include <memory>
 #include <string>
