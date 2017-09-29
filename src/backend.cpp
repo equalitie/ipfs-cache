@@ -1,4 +1,5 @@
 #include <ipfs_bindings.h>
+#include <ipfs_cache/error.h>
 #include <assert.h>
 #include <mutex>
 
@@ -7,6 +8,7 @@
 using namespace ipfs_cache;
 using namespace std;
 namespace asio = boost::asio;
+namespace sys  = boost::system;
 
 namespace {
     const uint32_t CID_SIZE = 46;
@@ -26,11 +28,12 @@ struct ipfs_cache::BackendImpl {
 
 struct HandleVoid {
     shared_ptr<BackendImpl> impl;
-    function<void()> cb;
+    function<void(sys::error_code)> cb;
 
     static void call(int err, void* arg) {
         auto self = reinterpret_cast<HandleVoid*>(arg);
         auto cb   = move(self->cb);
+        auto e    = error::ipfs_error{err};
         auto impl = move(self->impl);
         auto& ios = impl->ios;
 
@@ -40,20 +43,23 @@ struct HandleVoid {
 
         if (impl->was_destroyed) return;
 
-        ios.dispatch([cb = move(cb), impl = move(impl)]() {  // XXXX TODO use and pass err
+        ios.dispatch( [ cb   = move(cb)
+                      , ec   = error::make_error_code(e)
+                      , impl = move(impl)]() {
             if (impl->was_destroyed) return;
-            cb();
+            cb(ec);
         });
     }
 };
 
 struct HandleData {
     shared_ptr<BackendImpl> impl;
-    function<void(string)> cb;
+    function<void(sys::error_code, string)> cb;
 
     static void call(int err, const char* data, size_t size, void* arg) {
         auto self = reinterpret_cast<HandleData*>(arg);
         auto cb   = move(self->cb);
+        auto e    = error::ipfs_error{err};
         auto impl = move(self->impl);
         auto& ios = impl->ios;
 
@@ -63,11 +69,12 @@ struct HandleData {
 
         if (impl->was_destroyed) return;
 
-        ios.dispatch( [ cb   = move(cb)  // XXXX TODO use and pass err
+        ios.dispatch( [ cb   = move(cb)
+                      , ec   = error::make_error_code(e)
                       , s    = string(data, data + size)
                       , impl = move(impl)]() {
             if (impl->was_destroyed) return;
-            cb(move(s));
+            cb(ec, move(s));
         });
     }
 };
@@ -89,7 +96,7 @@ string Backend::ipns_id() const {
     return ret;
 }
 
-void Backend::publish(const string& cid, Timer::duration d, std::function<void()> cb)
+void Backend::publish(const string& cid, Timer::duration d, std::function<void(sys::error_code)> cb)
 {
     using namespace std::chrono;
 
@@ -101,26 +108,26 @@ void Backend::publish(const string& cid, Timer::duration d, std::function<void()
                          , (void*) new HandleVoid{_impl, move(cb)});
 }
 
-void Backend::resolve(const string& ipns_id, function<void(string)> cb)
+void Backend::resolve(const string& ipns_id, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_resolve( (char*) ipns_id.data()
                          , (void*) HandleData::call
                          , (void*) new HandleData{_impl, move(cb)} );
 }
 
-void Backend::add(const uint8_t* data, size_t size, function<void(string)> cb)
+void Backend::add(const uint8_t* data, size_t size, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_add( (void*) data, size
                      , (void*) HandleData::call
                      , (void*) new HandleData{_impl, move(cb)} );
 }
 
-void Backend::add(const string& s, function<void(string)> cb)
+void Backend::add(const string& s, function<void(sys::error_code, string)> cb)
 {
     add((const uint8_t*) s.data(), s.size(), move(cb));
 }
 
-void Backend::cat(const string& ipfs_id, function<void(string)> cb)
+void Backend::cat(const string& ipfs_id, function<void(sys::error_code, string)> cb)
 {
     assert(ipfs_id.size() == CID_SIZE);
 

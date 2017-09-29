@@ -51,8 +51,7 @@ void Republisher::start_publishing()
     auto last_i = --_callbacks.end();
 
     _backend.publish(_to_publish, publish_duration,
-        [this, d = _was_destroyed, last_i]
-        {
+        [this, d = _was_destroyed, last_i] (sys::error_code ec) {
             if (*d) return;
 
             while (true) {

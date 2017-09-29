@@ -23,7 +23,7 @@ void Client::get_content(string url, function<void(sys::error_code, string)> cb)
             return cb(error::key_not_found, move(ipfs_id));
          }
 
-        _backend->cat(ipfs_id, [cb = move(cb)] (string s) {
+        _backend->cat(ipfs_id, [cb = move(cb)] (sys::error_code ec, string s) {
                 cb(sys::error_code(), move(s));
             });
     }); 

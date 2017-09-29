@@ -28,7 +28,7 @@ string Injector::ipns_id() const
 void Injector::insert_content(string url, const string& content, function<void(string)> cb)
 {
     _backend->add( content
-                 , [this, url = move(url), cb = move(cb)] (string ipfs_id) {
+                 , [this, url = move(url), cb = move(cb)] (sys::error_code ec, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
 
                         _db->update( move(url)

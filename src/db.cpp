@@ -8,6 +8,7 @@ using namespace std;
 using namespace ipfs_cache;
 
 namespace asio = boost::asio;
+namespace sys  = boost::system;
 
 Db::Db(Backend& backend, string ipns)
     : _ipns(move(ipns))
@@ -73,7 +74,7 @@ template<class F>
 void Db::download_database(const string& ipns, F&& cb) {
     auto d = _was_destroyed;
 
-    _backend.resolve(ipns, [this, cb = forward<F>(cb), d](string ipfs_id) {
+    _backend.resolve(ipns, [this, cb = forward<F>(cb), d](sys::error_code ecr, string ipfs_id) {
         if (*d) return;
 
         if (ipfs_id.size() == 0) {
@@ -81,7 +82,7 @@ void Db::download_database(const string& ipns, F&& cb) {
             return;
         }
 
-        _backend.cat(ipfs_id, [this, cb = move(cb), d](string content) {
+        _backend.cat(ipfs_id, [this, cb = move(cb), d](sys::error_code ecc, string content) {
             if (*d) return;
 
             try {
@@ -101,7 +102,7 @@ void Db::upload_database(const Db::Json& json , F&& cb)
     auto dump = json.dump();
 
     _backend.add((uint8_t*) dump.data(), dump.size(),
-        [ this, cb = forward<F>(cb), d] (string db_ipfs_id) {
+        [ this, cb = forward<F>(cb), d] (sys::error_code ec, string db_ipfs_id) {
             if (*d) return;
             _republisher->publish(move(db_ipfs_id) , move(cb));
         });
