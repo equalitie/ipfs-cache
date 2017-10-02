@@ -38,6 +38,8 @@ namespace ipfs_cache { namespace error {
                     return "failed to get data reader";
                 case IPFS_READ_FAILED:
                     return "failed to read data";
+                case IPFS_PUBLISH_FAILED:
+                    return "failed to publish CID";
                 default:
                     return "unknown ipfs error";
             }

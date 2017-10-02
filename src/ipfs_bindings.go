@@ -217,7 +217,13 @@ func go_ipfs_cache_publish(cid *C.char, seconds C.int64_t, fn unsafe.Pointer, fn
 		}
 
 		// https://stackoverflow.com/questions/17573190/how-to-multiply-duration-by-integer
-		publish(g.ctx, time.Duration(seconds) * time.Second, g.node, id);
+		err := publish(g.ctx, time.Duration(seconds) * time.Second, g.node, id);
+
+		if err != nil {
+			C.execute_void_cb(fn, C.IPFS_PUBLISH_FAILED, fn_arg)
+			return
+		}
+
 		C.execute_void_cb(fn, C.IPFS_SUCCESS, fn_arg)
 	}()
 }
