@@ -2,7 +2,8 @@
 
 #include <string>
 #include <boost/system/error_code.hpp>
-#include "ipfs_error_codes.h"
+
+#include <ipfs_cache/ipfs_error_codes.h>
 
 // Inspired by this post
 // http://breese.github.io/2016/06/18/unifying-error-codes.html

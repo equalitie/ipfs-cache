@@ -24,11 +24,11 @@ import (
 	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
-// #cgo CFLAGS: -DIN_GO=1 -ggdb
+// #cgo CFLAGS: -DIN_GO=1 -ggdb -I ../include
 //#include <stdlib.h>
 //#include <stddef.h>
 //#include <stdint.h>
-//#include "ipfs_error_codes.h"
+//#include <ipfs_cache/ipfs_error_codes.h>
 //
 //// Don't export these functions into C or we'll get "unused function" warnings
 //// (Or errors saying functions are defined more than once if the're not static).

@@ -63,7 +63,7 @@ project(ipfs-cache)
 find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
 find_package(Threads)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/src -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
     "${Boost_INCLUDE_DIR}"
@@ -74,7 +74,7 @@ include_directories(
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
            ${BINDING_DIR}/ipfs_bindings.a
-    DEPENDS ${CMAKE_SOURCE_DIR}/src/ipfs_error_codes.h
+    DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
