@@ -23,7 +23,8 @@ public:
 
     void update( std::string key, std::string value
                , std::function<void(boost::system::error_code)>);
-    void query(std::string key, std::function<void(std::string)>);
+    void query( std::string key
+              , std::function<void(boost::system::error_code, std::string)>);
 
     boost::asio::io_service& get_io_service();
 
@@ -42,6 +43,7 @@ private:
 private:
     bool _is_uploading = false;
     bool _had_download = false;
+    bool _failed_download = false;
     Json _json;
     std::string _ipns;
     Backend& _backend;

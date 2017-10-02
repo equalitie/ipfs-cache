@@ -16,6 +16,7 @@ namespace ipfs_cache { namespace error {
     
     enum error_t {
         key_not_found,
+        db_download_failed
     };
     
     struct ipfs_category : public boost::system::error_category
@@ -58,6 +59,8 @@ namespace ipfs_cache { namespace error {
             switch (e) {
                 case error::key_not_found:
                     return "key not found";
+                case error::db_download_failed:
+                    return "database download failed";
                 default:
                     return "unknown ipfs_cache error";
             }

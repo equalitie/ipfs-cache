@@ -4,6 +4,8 @@
 
 #include <boost/asio/io_service.hpp>
 
+#include <ipfs_cache/error.h>
+
 using namespace std;
 using namespace ipfs_cache;
 
@@ -21,6 +23,11 @@ Db::Db(Backend& backend, string ipns)
 
 void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
+    if (_failed_download) {
+        // Database download already failed, invoke callback straight away.
+        return cb(error::make_error_code(error::db_download_failed));
+    }
+
     if (!_had_download) {
         return _queued_tasks.push(bind(&Db::update
                                       , this
@@ -78,7 +85,7 @@ void Db::download_database(const string& ipns, F&& cb) {
         if (*d) return;
 
         if (ipfs_id.size() == 0) {
-            cb(Db::Json());
+            cb(ecr, Db::Json());
             return;
         }
 
@@ -86,10 +93,10 @@ void Db::download_database(const string& ipns, F&& cb) {
             if (*d) return;
 
             try {
-                cb(Db::Json::parse(content));
+                cb(ecc, Db::Json::parse(content));
             }
             catch(...) {
-                cb(Db::Json());
+                cb(ecc, Db::Json());
             }
         });
     });
@@ -108,8 +115,13 @@ void Db::upload_database(const Db::Json& json , F&& cb)
         });
 }
 
-void Db::query(string key, function<void(string)> cb)
+void Db::query(string key, function<void(sys::error_code, string)> cb)
 {
+    if (_failed_download) {
+        // Database download already failed, invoke callback straight away.
+        return cb(error::make_error_code(error::db_download_failed), "");
+    }
+
     if (!_had_download) {
         _queued_tasks.push(bind(&Db::query, this, move(key), move(cb)));
         return;
@@ -118,7 +130,7 @@ void Db::query(string key, function<void(string)> cb)
     auto   v = _json[key];
     string s = v.is_string() ? v : "";
 
-    get_io_service().post(bind(move(cb), move(s)));
+    get_io_service().post(bind(move(cb), sys::error_code(), move(s)));
 }
 
 void Db::merge(const Json& remote_db)
@@ -130,7 +142,14 @@ void Db::merge(const Json& remote_db)
 
 void Db::start_db_download()
 {
-    download_database(_ipns, [this](Json json) {
+    if (_failed_download)  // database download already failed
+        return;
+
+    download_database(_ipns, [this](sys::error_code ec, Json json) {
+        if (ec.value()) {  // database download failed, flag this
+            _failed_download = true;
+            return;
+        }
         on_db_update(move(json));
     });
 }
