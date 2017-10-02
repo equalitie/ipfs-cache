@@ -31,6 +31,10 @@ void Injector::insert_content(string url, const string& content, function<void(s
                  , [this, url = move(url), cb = move(cb)] (sys::error_code eca, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
 
+                        if (eca.value()) {
+                            return cb(eca, move(ipfs_id_));
+                        }
+
                         _db->update( move(url)
                                    , move(ipfs_id)
                                    , [cb = move(cb), ipfs_id = move(ipfs_id_)] (sys::error_code ecu) {
