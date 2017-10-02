@@ -96,7 +96,7 @@ void Db::download_database(const string& ipns, F&& cb) {
                 cb(ecc, Db::Json::parse(content));
             }
             catch(...) {
-                cb(ecc, Db::Json());
+                cb(error::make_error_code(error::invalid_db_format), Db::Json());
             }
         });
     });
