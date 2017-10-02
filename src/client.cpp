@@ -19,12 +19,16 @@ Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
 void Client::get_content(string url, function<void(sys::error_code, string)> cb)
 {
     _db->query(url, [this, cb = move(cb)](sys::error_code ecq, string ipfs_id) {
+        if (ecq.value()) {
+            return cb(ecq, move(ipfs_id));
+        }
+
         if (ipfs_id.empty()) {
             return cb(error::key_not_found, move(ipfs_id));
         }
 
         _backend->cat(ipfs_id, [cb = move(cb)] (sys::error_code ecc, string s) {
-                cb(sys::error_code(), move(s));
+                cb(ecc, move(s));
             });
     }); 
 }
