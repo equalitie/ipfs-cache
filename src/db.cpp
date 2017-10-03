@@ -84,7 +84,7 @@ void Db::download_database(const string& ipns, F&& cb) {
     _backend.resolve(ipns, [this, cb = forward<F>(cb), d](sys::error_code ecr, string ipfs_id) {
         if (*d) return;
 
-        if (ecr.value() || ipfs_id.size() == 0) {
+        if (ecr || ipfs_id.size() == 0) {
             cb(ecr, Db::Json());
             return;
         }
@@ -111,7 +111,7 @@ void Db::upload_database(const Db::Json& json , F&& cb)
     _backend.add((uint8_t*) dump.data(), dump.size(),
         [ this, cb = forward<F>(cb), d] (sys::error_code ec, string db_ipfs_id) {
             if (*d) return;
-            if (ec.value())
+            if (ec)
                 return cb(ec);
             _republisher->publish(move(db_ipfs_id) , move(cb));
         });
@@ -148,7 +148,7 @@ void Db::start_db_download()
         return;
 
     download_database(_ipns, [this](sys::error_code ec, Json json) {
-        if (ec.value()) {  // database download failed, flag this
+        if (ec) {  // database download failed, flag this
             _failed_download = true;
             return;
         }
