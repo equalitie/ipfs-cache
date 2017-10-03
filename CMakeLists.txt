@@ -116,8 +116,6 @@ add_executable(client ${sources})
 add_dependencies(client ipfs-cache)
 
 target_link_libraries(client
-    event
-    event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
     ${Boost_LIBRARIES})
 
@@ -139,8 +137,6 @@ add_executable(injector ${sources})
 add_dependencies(injector ipfs-cache beast)
 
 target_link_libraries(injector
-    event
-    event_pthreads
     ${CMAKE_BINARY_DIR}/libipfs-cache.a
     ${Boost_LIBRARIES})
 
