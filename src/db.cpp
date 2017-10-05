@@ -25,7 +25,7 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
     if (_failed_download) {
         // Database download already failed, invoke callback straight away.
-        return cb(error::make_error_code(error::db_download_failed));
+        return get_io_service().post(bind(move(cb), error::make_error_code(error::db_download_failed)));
     }
 
     if (!_had_download) {
@@ -121,7 +121,7 @@ void Db::query(string key, function<void(sys::error_code, string)> cb)
 {
     if (_failed_download) {
         // Database download already failed, invoke callback straight away.
-        return cb(error::make_error_code(error::db_download_failed), "");
+        return get_io_service().post(bind(move(cb), error::make_error_code(error::db_download_failed), ""));
     }
 
     if (!_had_download) {
