@@ -15,7 +15,7 @@ namespace ipfs_cache { namespace error {
     };
     
     enum error_t {
-        key_not_found,
+        key_not_found = 1, // Start with > 0, because 0 means success.
         db_download_failed,
         invalid_db_format,
     };
