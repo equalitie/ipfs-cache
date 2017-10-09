@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/steady_timer.hpp>
+#include <boost/system/error_code.hpp>
 #include <string>
 #include <memory>
 #include <list>
@@ -21,7 +22,8 @@ class Republisher {
 public:
     Republisher(Backend&);
 
-    void publish(const std::string&, std::function<void()>);
+    void publish( const std::string&
+                , std::function<void(boost::system::error_code)>);
 
     ~Republisher();
 
@@ -34,7 +36,7 @@ private:
     boost::asio::steady_timer _timer;
     bool _is_publishing = false;
     std::string _to_publish;
-    std::list<std::function<void()>> _callbacks;
+    std::list<std::function<void(boost::system::error_code)>> _callbacks;
 };
 
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/spawn.hpp>
+#include <boost/system/error_code.hpp>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -34,7 +35,7 @@ public:
     // "https://ipfs.io/ipfs/" + <IPFS ID>
     void insert_content( std::string url
                        , const std::string& content
-                       , std::function<void(std::string)>);
+                       , std::function<void(boost::system::error_code, std::string)>);
 
     std::string insert_content( std::string url
                               , const std::string& content

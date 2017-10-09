@@ -74,7 +74,8 @@ include_directories(
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
            ${BINDING_DIR}/ipfs_bindings.a
-    DEPENDS ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
+    DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
+            ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
@@ -83,6 +84,7 @@ add_custom_command(
          && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
+  "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
 add_library(ipfs-cache STATIC ${sources}

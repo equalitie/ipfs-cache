@@ -17,7 +17,7 @@ Republisher::Republisher(Backend& backend)
     , _timer(_backend.get_io_service())
 {}
 
-void Republisher::publish(const std::string& cid, std::function<void()> cb)
+void Republisher::publish(const std::string& cid, std::function<void(sys::error_code)> cb)
 {
     _to_publish = cid;
 
@@ -51,15 +51,14 @@ void Republisher::start_publishing()
     auto last_i = --_callbacks.end();
 
     _backend.publish(_to_publish, publish_duration,
-        [this, d = _was_destroyed, last_i]
-        {
+        [this, d = _was_destroyed, last_i] (sys::error_code ec) {
             if (*d) return;
 
             while (true) {
                 bool is_last = last_i == _callbacks.begin();
                 auto cb = move(_callbacks.front());
                 _callbacks.pop_front();
-                if (cb) cb();
+                if (cb) cb(ec);
                 if (*d) return;
                 if (is_last) break;
             }
