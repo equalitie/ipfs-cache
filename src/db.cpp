@@ -150,6 +150,7 @@ void Db::start_db_download()
     download_database(_ipns, [this](sys::error_code ec, Json json) {
         if (ec) {  // database download failed, flag this
             _failed_download = true;
+            replay_queued_tasks();
             return;
         }
         on_db_update(move(json));
