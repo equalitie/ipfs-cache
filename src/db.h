@@ -14,6 +14,7 @@ namespace ipfs_cache {
 
 class Backend;
 class Republisher;
+class Timer;
 
 class Db {
 public:
@@ -32,7 +33,7 @@ public:
 
 private:
     void start_db_download();
-    void on_db_update(Json&& json);
+    void on_db_download(Json&& json);
     void replay_queued_tasks();
     void merge(const Json&);
     void start_updating();
@@ -42,15 +43,13 @@ private:
 
 private:
     bool _is_uploading = false;
-    bool _had_download = false;
-    bool _failed_download = false;
     Json _json;
     std::string _ipns;
     Backend& _backend;
     std::unique_ptr<Republisher> _republisher;
     std::list<std::function<void(boost::system::error_code)>> _upload_callbacks;
-    std::queue<std::function<void()>> _queued_tasks;
     std::shared_ptr<bool> _was_destroyed;
+    std::unique_ptr<Timer> _download_timer;
 };
 
 } // ipfs_cache namespace

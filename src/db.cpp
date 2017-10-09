@@ -1,6 +1,7 @@
 #include "db.h"
 #include "backend.h"
 #include "republisher.h"
+#include "timer.h"
 
 #include <boost/asio/io_service.hpp>
 
@@ -17,25 +18,13 @@ Db::Db(Backend& backend, string ipns)
     , _backend(backend)
     , _republisher(new Republisher(_backend))
     , _was_destroyed(make_shared<bool>(false))
+    , _download_timer(make_unique<Timer>(_backend.get_io_service()))
 {
     start_db_download();
 }
 
 void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
-    if (_failed_download) {
-        // Database download already failed, invoke callback straight away.
-        return get_io_service().post(bind(move(cb), error::make_error_code(error::db_download_failed)));
-    }
-
-    if (!_had_download) {
-        return _queued_tasks.push(bind(&Db::update
-                                      , this
-                                      , move(key)
-                                      , move(value)
-                                      , move(cb)));
-    }
-
     try {
         _json[key] = value;
     }
@@ -119,20 +108,17 @@ void Db::upload_database(const Db::Json& json , F&& cb)
 
 void Db::query(string key, function<void(sys::error_code, string)> cb)
 {
-    if (_failed_download) {
-        // Database download already failed, invoke callback straight away.
-        return get_io_service().post(bind(move(cb), error::make_error_code(error::db_download_failed), ""));
+    auto& ios = get_io_service();
+    auto  v   = _json[key];
+
+    // We only ever store string values.
+    if (v.is_string()) {
+        ios.post(bind(move(cb), sys::error_code(), v));
     }
-
-    if (!_had_download) {
-        _queued_tasks.push(bind(&Db::query, this, move(key), move(cb)));
-        return;
+    else {
+        assert(v.is_null());
+        ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
     }
-
-    auto   v = _json[key];
-    string s = v.is_string() ? v : "";
-
-    get_io_service().post(bind(move(cb), sys::error_code(), move(s)));
 }
 
 void Db::merge(const Json& remote_db)
@@ -144,50 +130,23 @@ void Db::merge(const Json& remote_db)
 
 void Db::start_db_download()
 {
-    if (_failed_download)  // database download already failed
-        return;
-
     download_database(_ipns, [this](sys::error_code ec, Json json) {
+        cout << "DB download: " << ec.message() << endl;
         if (ec) {  // database download failed, flag this
-            _failed_download = true;
-            replay_queued_tasks();
+            _download_timer->start( chrono::seconds(5)
+                                  , [this] { start_db_download(); });
             return;
         }
-        on_db_update(move(json));
+        on_db_download(move(json));
     });
 }
 
-void Db::on_db_update(Json&& json)
+void Db::on_db_download(Json&& json)
 {
     merge(json);
 
-    if (!_had_download) {
-        _had_download = true;
-        replay_queued_tasks();
-    }
-
-    // TODO: The 't' should be a member so it can be destroyed (canceled)
-    // in the destructor.
-    auto d = _was_destroyed;
-    auto t = make_shared<boost::asio::steady_timer>(_backend.get_io_service());
-    t->expires_from_now(std::chrono::seconds(5));
-    t->async_wait([this, t,d](boost::system::error_code ec) {
-            if (*d) return;
-            start_db_download();
-        });
-}
-
-void Db::replay_queued_tasks()
-{
-    auto tasks = move(_queued_tasks);
-    auto destroyed = _was_destroyed;
-    
-    while (!tasks.empty()) {
-        auto t = move(tasks.front());
-        tasks.pop();
-        t();
-        if (*destroyed) return;
-    }
+    _download_timer->start( chrono::seconds(5)
+                          , [this] { start_db_download(); });
 }
 
 asio::io_service& Db::get_io_service() {
