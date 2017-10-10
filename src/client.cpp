@@ -50,4 +50,9 @@ string Client::get_content(string url, asio::yield_context yield)
     return result.get();
 }
 
+const Json& Client::json_db() const
+{
+    return _db->json_db();
+}
+
 Client::~Client() {}

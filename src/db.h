@@ -15,11 +15,10 @@ namespace ipfs_cache {
 class Backend;
 class Republisher;
 class Timer;
+using Json = nlohmann::json;
 
 class Db {
 public:
-    using Json = nlohmann::json;
-
     Db(Backend&, std::string ipns);
 
     void update( std::string key, std::string value
@@ -28,6 +27,8 @@ public:
               , std::function<void(boost::system::error_code, std::string)>);
 
     boost::asio::io_service& get_io_service();
+
+    const Json& json_db() const;
 
     ~Db();
 
@@ -39,7 +40,7 @@ private:
     void start_updating();
 
     template<class F> void download_database(const std::string&, F&&);
-    template<class F> void upload_database(const Db::Json&, F&&);
+    template<class F> void upload_database(const Json&, F&&);
 
 private:
     bool _is_uploading = false;

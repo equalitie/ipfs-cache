@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <json.hpp>
 
 namespace boost { namespace asio {
     class io_service;
@@ -14,6 +15,7 @@ namespace ipfs_cache {
 
 struct Backend;
 struct Db;
+using Json = nlohmann::json;
 
 class Client {
 public:
@@ -32,6 +34,8 @@ public:
                     , std::function<void(boost::system::error_code, std::string)>);
 
     std::string get_content(std::string url, boost::asio::yield_context);
+
+    const Json& json_db() const;
 
     ~Client();
 

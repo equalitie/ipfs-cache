@@ -74,7 +74,7 @@ void Db::download_database(const string& ipns, F&& cb) {
         if (*d) return;
 
         if (ecr || ipfs_id.size() == 0) {
-            cb(ecr, Db::Json());
+            cb(ecr, Json());
             return;
         }
 
@@ -82,17 +82,17 @@ void Db::download_database(const string& ipns, F&& cb) {
             if (*d) return;
 
             try {
-                cb(ecc, Db::Json::parse(content));
+                cb(ecc, Json::parse(content));
             }
             catch(...) {
-                cb(error::make_error_code(error::invalid_db_format), Db::Json());
+                cb(error::make_error_code(error::invalid_db_format), Json());
             }
         });
     });
 }
 
 template<class F>
-void Db::upload_database(const Db::Json& json , F&& cb)
+void Db::upload_database(const Json& json , F&& cb)
 {
     auto d = _was_destroyed;
     auto dump = json.dump();
@@ -130,6 +130,7 @@ void Db::merge(const Json& remote_db)
 
 void Db::start_db_download()
 {
+    cout << "Db::start_db_download" << endl;
     download_database(_ipns, [this](sys::error_code ec, Json json) {
         cout << "DB download: " << ec.message() << endl;
         if (ec) {
@@ -151,6 +152,11 @@ void Db::on_db_download(Json&& json)
 
 asio::io_service& Db::get_io_service() {
     return _backend.get_io_service();
+}
+
+const Json& Db::json_db() const
+{
+    return _json;
 }
 
 Db::~Db() {
