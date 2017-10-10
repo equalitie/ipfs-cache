@@ -40,6 +40,7 @@ private:
     void replay_queued_tasks();
     void merge(const Json&);
     void start_updating();
+    void initialize(Json&);
 
     template<class F> void download_database(const std::string&, F&&);
     template<class F> void upload_database(const Json&, F&&);

@@ -23,14 +23,24 @@ Db::Db(Backend& backend, string ipns)
     start_db_download();
 }
 
+void Db::initialize(Json& json)
+{
+    json["ipns"] = _ipns;
+    json["sites"] = Json::object();
+}
+
 void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
+    if (_json == Json()) {
+        initialize(_json);
+    }
+
     // An empty key will not add anything into the json structure but 
     // will still force the updating loop to start. This is useful when
     // the injector wants to upload an empty database.
     if (!key.empty()) {
         try {
-            _json[key] = value;
+            _json["sites"][key] = value;
         }
         catch(...) {
             assert(0);
@@ -79,7 +89,7 @@ void Db::download_database(const string& ipns, F&& cb) {
         if (*d) return;
 
         if (ecr || ipfs_id.size() == 0) {
-            cb(ecr, Json());
+            cb(ecr, ipfs_id, Json());
             return;
         }
 
@@ -89,10 +99,10 @@ void Db::download_database(const string& ipns, F&& cb) {
             _ipfs = ipfs_id;
 
             try {
-                cb(ecc, Json::parse(content));
+                cb(ecc, ipfs_id, Json::parse(content));
             }
             catch(...) {
-                cb(error::make_error_code(error::invalid_db_format), Json());
+                cb(error::make_error_code(error::invalid_db_format), ipfs_id, Json());
             }
         });
     });
@@ -117,34 +127,73 @@ void Db::query(string key, function<void(sys::error_code, string)> cb)
 {
     auto& ios = get_io_service();
 
-    auto i = _json.find(key);
+    auto sites_i = _json.find("sites");
+
+    if (sites_i == _json.end() || !sites_i->is_object()) {
+        return ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
+    }
+
+    auto i = sites_i->find(key);
 
     // We only ever store string values.
-    if (i != _json.end() && i->is_string()) {
-        ios.post(bind(move(cb), sys::error_code(), *i));
+    if (i == sites_i->end() || !i->is_string()) {
+        return ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
     }
-    else {
-        ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
-    }
+
+    ios.post(bind(move(cb), sys::error_code(), *i));
 }
 
 void Db::merge(const Json& remote_db)
 {
-    for (auto it = remote_db.begin(); it != remote_db.end(); ++it) {
-        _json[it.key()] = it.value();
+    auto r_ipns_i = remote_db.find("ipns");
+    auto l_ipns_i = _json.find("ipns");
+
+    if (l_ipns_i == _json.end()) {
+        _json["ipns"] = r_ipns_i.value();
+    }
+
+    auto r_sites_i = remote_db.find("sites");
+
+    if (r_sites_i == remote_db.end() || !r_sites_i->is_object()) {
+        return;
+    }
+
+    auto l_sites_i = _json.find("sites");
+
+    if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
+        _json["sites"] = Json::object();
+    }
+
+    for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
+        auto l_sites_i = _json.find("sites");
+        if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
+            _json["sites"] = Json::object();
+            _json["sites"][it.key()] = it.value();
+        }
+        else {
+            // Only copy the one from the DB if we don't have it already
+            // (we'll likely have a more recent version).
+            if (l_sites_i->find(it.key()) == l_sites_i->end()) {
+                (*l_sites_i)[it.key()] = it.value();
+            }
+        }
     }
 }
 
 void Db::start_db_download()
 {
-    cout << "Db::start_db_download" << endl;
-    download_database(_ipns, [this](sys::error_code ec, Json json) {
-        cout << "DB download: " << ec.message() << endl;
+    download_database(_ipns
+                     , [this](sys::error_code ec, string ipfs_id, Json json) {
         if (ec) {
+            cout << "DB download failed: " << ec.message() << endl;
+
             _download_timer->start( chrono::seconds(5)
                                   , [this] { start_db_download(); });
             return;
         }
+
+        cout << "DB download: " << " " << ipfs_id << endl;
+
         on_db_download(move(json));
     });
 }
