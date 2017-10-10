@@ -25,11 +25,16 @@ Db::Db(Backend& backend, string ipns)
 
 void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
-    try {
-        _json[key] = value;
-    }
-    catch(...) {
-        assert(0);
+    // An empty key will not add anything into the json structure but 
+    // will still force the updating loop to start. This is useful when
+    // the injector wants to upload an empty database.
+    if (!key.empty()) {
+        try {
+            _json[key] = value;
+        }
+        catch(...) {
+            assert(0);
+        }
     }
 
     _upload_callbacks.push_back(move(cb));
@@ -78,8 +83,10 @@ void Db::download_database(const string& ipns, F&& cb) {
             return;
         }
 
-        _backend.cat(ipfs_id, [this, cb = move(cb), d](sys::error_code ecc, string content) {
+        _backend.cat(ipfs_id, [this, cb = move(cb), d, ipfs_id](sys::error_code ecc, string content) {
             if (*d) return;
+
+            _ipfs = ipfs_id;
 
             try {
                 cb(ecc, Json::parse(content));

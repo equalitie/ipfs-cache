@@ -50,6 +50,16 @@ string Client::get_content(string url, asio::yield_context yield)
     return result.get();
 }
 
+const string& Client::ipns() const
+{
+    return _db->ipns();
+}
+
+const string& Client::ipfs() const
+{
+    return _db->ipfs();
+}
+
 const Json& Client::json_db() const
 {
     return _db->json_db();

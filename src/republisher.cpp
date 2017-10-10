@@ -1,5 +1,6 @@
 #include "republisher.h"
 #include "backend.h"
+#include <iostream>
 
 using namespace std;
 using namespace ipfs_cache;
@@ -51,9 +52,10 @@ void Republisher::start_publishing()
     auto last_i = --_callbacks.end();
 
     _backend.publish(_to_publish, publish_duration,
-        [this, d = _was_destroyed, last_i] (sys::error_code ec) {
+        [this, d = _was_destroyed, last_i, id = _to_publish] (sys::error_code ec) {
             if (*d) return;
 
+            cout << "Published DB: " << id << endl;
             while (true) {
                 bool is_last = last_i == _callbacks.begin();
                 auto cb = move(_callbacks.front());

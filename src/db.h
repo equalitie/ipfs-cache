@@ -29,6 +29,8 @@ public:
     boost::asio::io_service& get_io_service();
 
     const Json& json_db() const;
+    const std::string& ipns() const { return _ipns; }
+    const std::string& ipfs() const { return _ipfs; }
 
     ~Db();
 
@@ -46,6 +48,7 @@ private:
     bool _is_uploading = false;
     Json _json;
     std::string _ipns;
+    std::string _ipfs; // Last known
     Backend& _backend;
     std::unique_ptr<Republisher> _republisher;
     std::list<std::function<void(boost::system::error_code)>> _upload_callbacks;

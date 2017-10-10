@@ -18,6 +18,7 @@ Injector::Injector(asio::io_service& ios, string path_to_repo)
     : _backend(new Backend(ios, path_to_repo))
     , _db(new Db(*_backend, _backend->ipns_id()))
 {
+    _db->update("", "", [] (sys::error_code) {});
 }
 
 string Injector::ipns_id() const

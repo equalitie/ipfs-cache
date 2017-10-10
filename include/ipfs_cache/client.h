@@ -35,6 +35,8 @@ public:
 
     std::string get_content(std::string url, boost::asio::yield_context);
 
+    const std::string& ipns() const;
+    const std::string& ipfs() const;
     const Json& json_db() const;
 
     ~Client();
