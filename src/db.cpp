@@ -109,14 +109,14 @@ void Db::upload_database(const Db::Json& json , F&& cb)
 void Db::query(string key, function<void(sys::error_code, string)> cb)
 {
     auto& ios = get_io_service();
-    auto  v   = _json[key];
+
+    auto i = _json.find(key);
 
     // We only ever store string values.
-    if (v.is_string()) {
-        ios.post(bind(move(cb), sys::error_code(), v));
+    if (i != _json.end() && i->is_string()) {
+        ios.post(bind(move(cb), sys::error_code(), *i));
     }
     else {
-        assert(v.is_null());
         ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
     }
 }
@@ -132,7 +132,7 @@ void Db::start_db_download()
 {
     download_database(_ipns, [this](sys::error_code ec, Json json) {
         cout << "DB download: " << ec.message() << endl;
-        if (ec) {  // database download failed, flag this
+        if (ec) {
             _download_timer->start( chrono::seconds(5)
                                   , [this] { start_db_download(); });
             return;
