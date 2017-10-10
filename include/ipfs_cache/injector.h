@@ -17,6 +17,16 @@ struct Db;
 
 class Injector {
 public:
+    using OnInsert = std::function<void(boost::system::error_code, std::string)>;
+
+private:
+    struct InsertEntry {
+        std::string key;
+        std::string value;
+        OnInsert    on_insert;
+    };
+
+public:
     Injector(boost::asio::io_service&, std::string path_to_repo);
 
     Injector(const Injector&) = delete;
@@ -35,7 +45,7 @@ public:
     // "https://ipfs.io/ipfs/" + <IPFS ID>
     void insert_content( std::string url
                        , const std::string& content
-                       , std::function<void(boost::system::error_code, std::string)>);
+                       , OnInsert);
 
     std::string insert_content( std::string url
                               , const std::string& content
@@ -44,8 +54,14 @@ public:
     ~Injector();
 
 private:
+    void insert_content_from_queue();
+
+private:
     std::unique_ptr<Backend> _backend;
     std::unique_ptr<Db> _db;
+    std::queue<InsertEntry> _insert_queue;
+    const unsigned int _concurrency = 8;
+    unsigned int _job_count = 0;
 };
 
 } // ipfs_cache namespace

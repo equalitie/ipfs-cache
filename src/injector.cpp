@@ -25,17 +25,26 @@ string Injector::ipns_id() const
     return _backend->ipns_id();
 }
 
-void Injector::insert_content(string url, const string& content, function<void(sys::error_code, string)> cb)
+void Injector::insert_content_from_queue()
 {
-    _backend->add( content
-                 , [this, url = move(url), cb = move(cb)] (sys::error_code eca, string ipfs_id) {
+    if (_insert_queue.empty()) return;
+
+    auto e = move(_insert_queue.front());
+    _insert_queue.pop();
+
+    _backend->add( e.value
+                 , [this, key = move(e.key), cb = move(e.on_insert)]
+                   (sys::error_code eca, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
+
+                        --_job_count;
+                        insert_content_from_queue();
 
                         if (eca) {
                             return cb(eca, move(ipfs_id_));
                         }
 
-                        _db->update( move(url)
+                        _db->update( move(key)
                                    , move(ipfs_id)
                                    , [cb = move(cb), ipfs_id = move(ipfs_id_)] (sys::error_code ecu) {
                                          cb(ecu, ipfs_id);
@@ -43,7 +52,19 @@ void Injector::insert_content(string url, const string& content, function<void(s
                    });
 }
 
-string Injector::insert_content(string url, const string& content, asio::yield_context yield)
+void Injector::insert_content(string key, const string& value, function<void(sys::error_code, string)> cb)
+{
+    _insert_queue.push(InsertEntry{move(key), move(value), move(cb)});
+
+    if (_job_count >= _concurrency) {
+        return;
+    }
+
+    ++_job_count;
+    insert_content_from_queue();
+}
+
+string Injector::insert_content(string key, const string& value, asio::yield_context yield)
 {
     using handler_type = typename asio::handler_type
                            < asio::yield_context
@@ -52,7 +73,7 @@ string Injector::insert_content(string url, const string& content, asio::yield_c
     handler_type handler(yield);
     asio::async_result<handler_type> result(handler);
 
-    insert_content(move(url), content, [h = move(handler)] (sys::error_code ec, string v) mutable {
+    insert_content(move(key), value, [h = move(handler)] (sys::error_code ec, string v) mutable {
             h(ec, move(v));
         });
 
