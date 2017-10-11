@@ -192,8 +192,6 @@ void Db::start_db_download()
             return;
         }
 
-        cout << "DB download: " << " " << ipfs_id << endl;
-
         on_db_download(move(json));
     });
 }

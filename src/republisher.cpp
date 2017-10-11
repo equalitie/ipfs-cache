@@ -51,6 +51,7 @@ void Republisher::start_publishing()
 
     auto last_i = --_callbacks.end();
 
+    cout << "Publishing DB: " << _to_publish << endl;
     _backend.publish(_to_publish, publish_duration,
         [this, d = _was_destroyed, last_i, id = _to_publish] (sys::error_code ec) {
             if (*d) return;
