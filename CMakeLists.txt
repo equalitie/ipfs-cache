@@ -47,6 +47,7 @@ externalproject_add(ipfs
                   && export GOROOT=${GOROOT}
                   && export PATH=$ENV{PATH}:${GOROOT}/bin
                   && go get -u -d github.com/ipfs/go-ipfs
+    BUILD_ALWAYS 1
     DEPENDS golang
     CONFIGURE_COMMAND ""
     BUILD_COMMAND export GOPATH=${GOPATH}
