@@ -19,6 +19,9 @@ public:
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
 
+    Timer(Timer&&) = default;
+    Timer& operator=(Timer&&) = default;
+
     void start(Clock::duration, std::function<void()>);
 
     bool is_running() const;

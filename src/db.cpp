@@ -1,10 +1,10 @@
 #include "db.h"
 #include "backend.h"
 #include "republisher.h"
-#include "timer.h"
 
 #include <boost/asio/io_service.hpp>
 
+#include <ipfs_cache/timer.h>
 #include <ipfs_cache/error.h>
 
 using namespace std;
