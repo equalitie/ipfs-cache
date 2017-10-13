@@ -19,7 +19,7 @@ using Json = nlohmann::json;
 
 class Db {
 public:
-    Db(Backend&, std::string ipns);
+    Db(Backend&, bool is_client, std::string path_to_repo, std::string ipns);
 
     void update( std::string key, std::string value
                , std::function<void(boost::system::error_code)>);
@@ -47,6 +47,8 @@ private:
 
 private:
     bool _is_uploading = false;
+    const bool _is_client;
+    const std::string _path_to_repo;
     Json _json;
     std::string _ipns;
     std::string _ipfs; // Last known

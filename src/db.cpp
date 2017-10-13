@@ -7,20 +7,64 @@
 #include <ipfs_cache/timer.h>
 #include <ipfs_cache/error.h>
 
+#include <fstream>
+
 using namespace std;
 using namespace ipfs_cache;
 
 namespace asio = boost::asio;
 namespace sys  = boost::system;
 
-Db::Db(Backend& backend, string ipns)
-    : _ipns(move(ipns))
+static Json load_db(const string& path_to_repo)
+{
+    Json db;
+    string path = path_to_repo + "/ipfs_cache_db.json";
+
+    ifstream file(path);
+
+    if (!file.is_open()) {
+        cerr << "Warning: Couldn't open " << path << endl;
+        return db;
+    }
+
+    try {
+        file >> db;
+    }
+    catch (const std::exception& e) {
+        cerr << "ERROR: parsing " << path << ": " << e.what() << endl;
+    }
+
+    return db;
+}
+
+static void save_db(const Json& db, const string& path_to_repo)
+{
+    string path = path_to_repo + "/ipfs_cache_db.json";
+
+    ofstream file(path, std::ofstream::trunc);
+
+    if (!file.is_open()) {
+        cerr << "ERROR: Saving " << path << endl;
+        return;
+    }
+
+    file << setw(4) << db;
+    file.close();
+}
+
+Db::Db(Backend& backend, bool is_client, string path_to_repo, string ipns)
+    : _is_client(is_client)
+    , _path_to_repo(move(path_to_repo))
+    , _ipns(move(ipns))
     , _backend(backend)
     , _republisher(new Republisher(_backend))
     , _was_destroyed(make_shared<bool>(false))
     , _download_timer(make_unique<Timer>(_backend.get_io_service()))
 {
-    start_db_download();
+    _json = load_db(_path_to_repo);
+
+    if (_is_client)
+        start_db_download();
 }
 
 void Db::initialize(Json& json)
@@ -37,7 +81,7 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
 
     // An empty key will not add anything into the json structure but 
     // will still force the updating loop to start. This is useful when
-    // the injector wants to upload an empty database.
+    // the injector wants to upload a database with no sites.
     if (!key.empty()) {
         try {
             _json["sites"][key] = value;
@@ -46,6 +90,10 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
             assert(0);
         }
     }
+
+    // TODO: When the database get's big, this will become costly to do
+    // on each update, thus we need to think of a smarter solution.
+    save_db(_json, _path_to_repo);
 
     _upload_callbacks.push_back(move(cb));
 
@@ -161,22 +209,18 @@ void Db::merge(const Json& remote_db)
     auto l_sites_i = _json.find("sites");
 
     if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
+        // XXX: Can these two lines be done in one command?
         _json["sites"] = Json::object();
+        l_sites_i = _json.find("sites");
     }
 
     for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
-        auto l_sites_i = _json.find("sites");
-        if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
-            _json["sites"] = Json::object();
-            _json["sites"][it.key()] = it.value();
+        if (!_is_client && l_sites_i->find(it.key()) != l_sites_i->end()) {
+            // If we're the injector and we already have the value
+            // then we likely have a more recent version.
+            continue;
         }
-        else {
-            // Only copy the one from the DB if we don't have it already
-            // (we'll likely have a more recent version).
-            if (l_sites_i->find(it.key()) == l_sites_i->end()) {
-                (*l_sites_i)[it.key()] = it.value();
-            }
-        }
+        (*l_sites_i)[it.key()] = it.value();
     }
 }
 
@@ -199,6 +243,10 @@ void Db::start_db_download()
 void Db::on_db_download(Json&& json)
 {
     merge(json);
+
+    // TODO: When the database get's big, this will become costly to do
+    // on each download, thus we need to think of a smarter solution.
+    save_db(_json, _path_to_repo);
 
     _download_timer->start( chrono::seconds(5)
                           , [this] { start_db_download(); });
