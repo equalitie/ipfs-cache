@@ -30,7 +30,7 @@ set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
 
 ################################################################################
 externalproject_add(golang
-    URL https://storage.googleapis.com/golang/go1.9.linux-amd64.tar.gz
+    URL https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz
     BUILD_COMMAND ""
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ""
