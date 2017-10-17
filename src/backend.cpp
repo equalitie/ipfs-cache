@@ -2,6 +2,7 @@
 #include <ipfs_cache/error.h>
 #include <assert.h>
 #include <mutex>
+#include <experimental/tuple>
 
 #include "backend.h"
 
@@ -26,56 +27,45 @@ struct ipfs_cache::BackendImpl {
     {}
 };
 
-struct HandleVoid {
-    shared_ptr<BackendImpl> impl;
-    function<void(sys::error_code)> cb;
-
-    static void call(int err, void* arg) {
-        auto self = reinterpret_cast<HandleVoid*>(arg);
-        auto cb   = move(self->cb);
-        auto e    = error::ipfs_error{err};
-        auto impl = move(self->impl);
-        auto& ios = impl->ios;
-
-        delete self;
-
-        lock_guard<mutex> guard(impl->destruct_mutex);
-
-        if (impl->was_destroyed) return;
-
-        ios.dispatch( [ cb   = move(cb)
-                      , ec   = error::make_error_code(e)
-                      , impl = move(impl)]() {
-            if (impl->was_destroyed) return;
-            cb(ec);
-        });
-    }
+template<class F> struct Defer {
+    F f;
+    ~Defer() { f(); }
 };
 
-struct HandleData {
+template<class F> Defer<F> defer(F&& f) {
+    return Defer<F>{forward<F>(f)};
+};
+
+template<class... As>
+struct Handle {
     shared_ptr<BackendImpl> impl;
-    function<void(sys::error_code, string)> cb;
+    function<void(sys::error_code, As&&...)> cb;
+    tuple<sys::error_code, As...> args;
 
-    static void call(int err, const char* data, size_t size, void* arg) {
-        auto self = reinterpret_cast<HandleData*>(arg);
-        auto cb   = move(self->cb);
-        auto e    = error::ipfs_error{err};
-        auto impl = move(self->impl);
-        auto& ios = impl->ios;
+    static void call(int err, void* arg, As... args) {
+        auto self = reinterpret_cast<Handle*>(arg);
+        auto& ios = self->impl->ios;
 
-        delete self;
+        lock_guard<mutex> guard(self->impl->destruct_mutex);
 
-        lock_guard<mutex> guard(impl->destruct_mutex);
+        if (self->impl->was_destroyed) return;
 
-        if (impl->was_destroyed) return;
+        auto ec = make_error_code(error::ipfs_error{err});
+        self->args = make_tuple(ec, move(args)...);
 
-        ios.dispatch( [ cb   = move(cb)
-                      , ec   = error::make_error_code(e)
-                      , s    = string(data, data + size)
-                      , impl = move(impl)]() {
-            if (impl->was_destroyed) return;
-            cb(ec, move(s));
+        ios.dispatch([self] {
+            auto on_exit = defer([=] { delete self; });
+            if (self->impl->was_destroyed) return;
+            std::experimental::apply(self->cb, move(self->args));
         });
+    }
+
+    static void call_void(int err, void* arg) {
+        call(err, arg);
+    }
+
+    static void call_data(int err, const char* data, size_t size, void* arg) {
+        call(err, arg, string(data, data + size));
     }
 };
 
@@ -104,22 +94,22 @@ void Backend::publish(const string& cid, Timer::duration d, std::function<void(s
 
     go_ipfs_cache_publish( (char*) cid.data()
                          , duration_cast<seconds>(d).count()
-                         , (void*) HandleVoid::call
-                         , (void*) new HandleVoid{_impl, move(cb)});
+                         , (void*) Handle<>::call_void
+                         , (void*) new Handle<>{_impl, move(cb)});
 }
 
 void Backend::resolve(const string& ipns_id, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_resolve( (char*) ipns_id.data()
-                         , (void*) HandleData::call
-                         , (void*) new HandleData{_impl, move(cb)} );
+                         , (void*) Handle<string>::call_data
+                         , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
 void Backend::add(const uint8_t* data, size_t size, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_add( (void*) data, size
-                     , (void*) HandleData::call
-                     , (void*) new HandleData{_impl, move(cb)} );
+                     , (void*) Handle<string>::call_data
+                     , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
 void Backend::add(const string& s, function<void(sys::error_code, string)> cb)
@@ -132,8 +122,8 @@ void Backend::cat(const string& ipfs_id, function<void(sys::error_code, string)>
     assert(ipfs_id.size() == CID_SIZE);
 
     go_ipfs_cache_cat( (char*) ipfs_id.data()
-                     , (void*) HandleData::call
-                     , (void*) new HandleData{_impl, move(cb)} );
+                     , (void*) Handle<string>::call_data
+                     , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
 boost::asio::io_service& Backend::get_io_service()
