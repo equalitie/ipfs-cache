@@ -59,6 +59,23 @@ externalproject_add(ipfs
     PREFIX "ipfs")
 
 ################################################################################
+externalproject_add(xgo
+    DOWNLOAD_COMMAND mkdir -p ${GOPATH}
+                  && export GOPATH=${GOPATH}
+                  && export GOROOT=${GOROOT}
+                  && export PATH=$ENV{PATH}:${GOROOT}/bin
+                  && go get -u -d github.com/karalabe/xgo
+    BUILD_ALWAYS 1
+    DEPENDS golang
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND export GOPATH=${GOPATH}
+               && export GOROOT=${GOROOT}
+               && export PATH=$ENV{PATH}:${GOROOT}/bin
+               && go get github.com/karalabe/xgo
+    INSTALL_COMMAND ""
+    PREFIX "xgo")
+
+################################################################################
 project(ipfs-bindings)
 
 add_custom_target(ipfs-bindings
