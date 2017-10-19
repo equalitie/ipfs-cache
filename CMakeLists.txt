@@ -76,13 +76,13 @@ add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
            ${BINDING_DIR}/ipfs_bindings.a
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
-            ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
+            ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
          && export PATH=$ENV{PATH}:${GOROOT}/bin
-         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
+         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
