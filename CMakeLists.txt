@@ -80,17 +80,22 @@ project(ipfs-bindings)
 
 add_custom_target(ipfs-bindings
     COMMAND mkdir -p ${BINDING_DIR}
-         && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
-         && export PATH=$ENV{PATH}:${GOROOT}/bin
-         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
+         && export PATH=$ENV{PATH}:${GOPATH}/bin
+         && mkdir -p ${GOPATH}/src/github.com/equalitie
+         && cd ${GOPATH}/src/github.com/equalitie
+         && ln -sfT ${CMAKE_SOURCE_DIR} ipfs-cache
+         && cd ipfs-cache
+         && xgo --targets=linux/amd64 -buildmode=c-archive -out ipfs_bindings -dest ${BINDING_DIR} ./src/go
+         && mv -f ${BINDING_DIR}/ipfs_bindings-linux-amd64.h ${BINDING_DIR}/ipfs_bindings.h
+         && mv -f ${BINDING_DIR}/ipfs_bindings-linux-amd64.a ${BINDING_DIR}/ipfs_bindings.a
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
     BYPRODUCTS ${BINDING_DIR}/ipfs_bindings.h
                ${BINDING_DIR}/ipfs_bindings.a)
 
-add_dependencies(ipfs-bindings ipfs)
+add_dependencies(ipfs-bindings ipfs xgo)
 
 ################################################################################
 project(ipfs-cache)
