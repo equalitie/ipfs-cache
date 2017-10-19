@@ -59,6 +59,23 @@ externalproject_add(ipfs
     PREFIX "ipfs")
 
 ################################################################################
+project(ipfs-bindings)
+
+add_custom_target(ipfs-bindings
+    COMMAND mkdir -p ${BINDING_DIR}
+         && cd ${BINDING_DIR}
+         && export GOPATH=${GOPATH}
+         && export GOROOT=${GOROOT}
+         && export PATH=$ENV{PATH}:${GOROOT}/bin
+         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
+    DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
+            ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
+    BYPRODUCTS ${BINDING_DIR}/ipfs_bindings.h
+               ${BINDING_DIR}/ipfs_bindings.a)
+
+add_dependencies(ipfs-bindings ipfs)
+
+################################################################################
 project(ipfs-cache)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
@@ -72,18 +89,6 @@ include_directories(
     "${BINDING_DIR}"
     "${CMAKE_SOURCE_DIR}/include")
 
-add_custom_command(
-    OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${BINDING_DIR}/ipfs_bindings.a
-    DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
-            ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
-    COMMAND mkdir -p ${BINDING_DIR}
-         && cd ${BINDING_DIR}
-         && export GOPATH=${GOPATH}
-         && export GOROOT=${GOROOT}
-         && export PATH=$ENV{PATH}:${GOROOT}/bin
-         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go)
-
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
@@ -92,7 +97,7 @@ add_library(ipfs-cache STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
     ${BINDING_DIR}/ipfs_bindings.a)
 
-add_dependencies(ipfs-cache json ipfs)
+add_dependencies(ipfs-cache json ipfs-bindings)
 
 # Append object files from  ipfs_bindings.a into libipfs-cache.a.
 add_custom_command(TARGET ipfs-cache
