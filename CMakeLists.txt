@@ -54,7 +54,7 @@ externalproject_add(ipfs
                && export GOROOT=${GOROOT}
                && export PATH=$ENV{PATH}:${GOROOT}/bin
                && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
-               && make install
+               && make deps
     INSTALL_COMMAND ""
     PREFIX "ipfs")
 
