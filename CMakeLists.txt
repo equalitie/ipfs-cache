@@ -1,10 +1,29 @@
 cmake_minimum_required (VERSION 3.5)
+set(GLOB BOOST_VERSION 1.55)
 
-set(TARGET_PLATFORM "linux" CACHE STRING "Target platform (in xgo parlance), e.g. linux (default), android")
-set(TARGET_ARCHITECTURE "amd64" CACHE STRING "Target architecture (in xgo parlance), e.g. amd64 (default), arm-6")
+################################################################################
+project(_dummy)  # just to force loading cross-compilation variables
+
+# Convert system name into xgo's platform.
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    set(TARGET_PLATFORM "linux")
+else()
+    message(FATAL_ERROR "unsupported platform ${CMAKE_SYSTEM_NAME}")
+endif()
+
+# Convert system processor into xgo's architecture.
+if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+    set(TARGET_ARCHITECTURE "amd64")
+elif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "arm64")
+    set(TARGET_ARCHITECTURE "arm64")
+elif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "^arm.*")
+    set(TARGET_ARCHITECTURE "arm-6")
+else()
+    message(FATAL_ERROR "unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
 set(TARGET "${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
 
-set(GLOB BOOST_VERSION 1.55)
 include(ExternalProject)
 ################################################################################
 # TODO(peterj): Address sanitizer seems to cause segmentation faults on exit
