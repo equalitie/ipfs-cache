@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 3.5)
 
 set(TARGET_PLATFORM "linux" CACHE STRING "Target platform (in xgo parlance), e.g. linux (default), android")
 set(TARGET_ARCHITECTURE "amd64" CACHE STRING "Target architecture (in xgo parlance), e.g. amd64 (default), arm-6")
+set(TARGET "${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
 
 set(GLOB BOOST_VERSION 1.55)
 include(ExternalProject)
@@ -19,7 +20,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
+set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings-${TARGET}")
 
 ################################################################################
 externalproject_add(beast
@@ -114,19 +115,19 @@ file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_library(ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} STATIC ${sources}
+add_library(ipfs-cache-${TARGET} STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
     ${BINDING_DIR}/ipfs_bindings.a)
 
-add_dependencies(ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} json ipfs xgo)
+add_dependencies(ipfs-cache-${TARGET} json ipfs xgo)
 
 # Append object files from  ipfs_bindings.a into libipfs-cache.a.
-add_custom_command(TARGET ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
+add_custom_command(TARGET ipfs-cache-${TARGET}
     POST_BUILD
     COMMAND cd ${BINDING_DIR}
          && ar -x ipfs_bindings.a
          && cd ${CMAKE_BINARY_DIR}
-         && ar -qc libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a ${BINDING_DIR}/*.o)
+         && ar -qc libipfs-cache-${TARGET}.a ${BINDING_DIR}/*.o)
 
 ################################################################################
 project(client)
@@ -140,12 +141,12 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/client.cpp")
 
-add_executable(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ${sources})
+add_executable(client-${TARGET} ${sources})
 
-add_dependencies(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE})
+add_dependencies(client-${TARGET} ipfs-cache-${TARGET})
 
-target_link_libraries(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
+target_link_libraries(client-${TARGET}
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.a
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -161,12 +162,12 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/injector.cpp")
 
-add_executable(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ${sources})
+add_executable(injector-${TARGET} ${sources})
 
-add_dependencies(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} beast)
+add_dependencies(injector-${TARGET} ipfs-cache-${TARGET} beast)
 
-target_link_libraries(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
+target_link_libraries(injector-${TARGET}
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.a
     ${Boost_LIBRARIES})
 
 ################################################################################
