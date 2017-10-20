@@ -1,4 +1,8 @@
 cmake_minimum_required (VERSION 3.5)
+
+set(TARGET_PLATFORM "linux" CACHE STRING "Target platform (in xgo parlance), e.g. linux (default), android")
+set(TARGET_ARCHITECTURE "amd64" CACHE STRING "Target architecture (in xgo parlance), e.g. amd64 (default), arm-6")
+
 set(GLOB BOOST_VERSION 1.55)
 include(ExternalProject)
 ################################################################################
@@ -102,9 +106,9 @@ add_custom_command(
          && cd ${GOPATH}/src/github.com/equalitie
          && ln -sfT ${CMAKE_SOURCE_DIR} ipfs-cache
          && cd ipfs-cache
-         && xgo --targets=linux/amd64 -buildmode=c-archive -out ipfs_bindings -dest ${BINDING_DIR} ./src/go
-         && cp -f ${BINDING_DIR}/ipfs_bindings-linux-amd64.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-linux-amd64.a ${BINDING_DIR}/ipfs_bindings.a)
+         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -out ipfs_bindings -dest ${BINDING_DIR} ./src/go
+         && cp -f ${BINDING_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.h ${BINDING_DIR}/ipfs_bindings.h
+         && cp -f ${BINDING_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a ${BINDING_DIR}/ipfs_bindings.a)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
