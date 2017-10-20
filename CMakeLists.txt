@@ -140,11 +140,11 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/client.cpp")
 
-add_executable(client ${sources})
+add_executable(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ${sources})
 
-add_dependencies(client ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE})
+add_dependencies(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE})
 
-target_link_libraries(client
+target_link_libraries(client-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
     ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
     ${Boost_LIBRARIES})
 
@@ -161,11 +161,11 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/injector.cpp")
 
-add_executable(injector ${sources})
+add_executable(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ${sources})
 
-add_dependencies(injector ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} beast)
+add_dependencies(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} beast)
 
-target_link_libraries(injector
+target_link_libraries(injector-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
     ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
     ${Boost_LIBRARIES})
 
