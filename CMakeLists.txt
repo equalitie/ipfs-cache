@@ -19,7 +19,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings")
+set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
 
 ################################################################################
 externalproject_add(beast
@@ -107,8 +107,8 @@ add_custom_command(
          && ln -sfT ${CMAKE_SOURCE_DIR} ipfs-cache
          && cd ipfs-cache
          && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -out ipfs_bindings -dest ${BINDING_DIR} ./src/go
-         && cp -f ${BINDING_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a ${BINDING_DIR}/ipfs_bindings.a)
+         && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
+         && cp -f ${BINDING_DIR}/ipfs_bindings-*.a ${BINDING_DIR}/ipfs_bindings.a)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
