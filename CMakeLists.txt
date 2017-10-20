@@ -114,19 +114,19 @@ file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_library(ipfs-cache STATIC ${sources}
+add_library(ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
     ${BINDING_DIR}/ipfs_bindings.a)
 
-add_dependencies(ipfs-cache json ipfs xgo)
+add_dependencies(ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} json ipfs xgo)
 
 # Append object files from  ipfs_bindings.a into libipfs-cache.a.
-add_custom_command(TARGET ipfs-cache
+add_custom_command(TARGET ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}
     POST_BUILD
     COMMAND cd ${BINDING_DIR}
          && ar -x ipfs_bindings.a
          && cd ${CMAKE_BINARY_DIR}
-         && ar -qc libipfs-cache.a ${BINDING_DIR}/*.o)
+         && ar -qc libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a ${BINDING_DIR}/*.o)
 
 ################################################################################
 project(client)
@@ -142,10 +142,10 @@ file(GLOB sources
 
 add_executable(client ${sources})
 
-add_dependencies(client ipfs-cache)
+add_dependencies(client ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE})
 
 target_link_libraries(client
-    ${CMAKE_BINARY_DIR}/libipfs-cache.a
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -163,10 +163,10 @@ file(GLOB sources
 
 add_executable(injector ${sources})
 
-add_dependencies(injector ipfs-cache beast)
+add_dependencies(injector ipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE} beast)
 
 target_link_libraries(injector
-    ${CMAKE_BINARY_DIR}/libipfs-cache.a
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}.a
     ${Boost_LIBRARIES})
 
 ################################################################################
