@@ -98,7 +98,7 @@ add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
            ${BINDING_DIR}/ipfs_bindings.a
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
-            ${CMAKE_SOURCE_DIR}/src/go/ipfs_bindings.go
+            ${CMAKE_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
@@ -107,7 +107,7 @@ add_custom_command(
          && cd ${GOPATH}/src/github.com/equalitie
          && ln -sfT ${CMAKE_SOURCE_DIR} ipfs-cache
          && cd ipfs-cache
-         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -out ipfs_bindings -dest ${BINDING_DIR} ./src/go
+         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -dest ${BINDING_DIR} ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.a ${BINDING_DIR}/ipfs_bindings.a)
 
