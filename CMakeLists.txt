@@ -7,6 +7,8 @@ project(_dummy)  # just to force loading cross-compilation variables
 # Convert system name into xgo's platform.
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     set(TARGET_PLATFORM "linux")
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    set(TARGET_PLATFORM "android")
 else()
     message(FATAL_ERROR "unsupported platform ${CMAKE_SYSTEM_NAME}")
 endif()
