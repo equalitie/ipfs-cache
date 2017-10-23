@@ -78,6 +78,19 @@ _client-<PLAT>-<ARCH>_.  `<PLAT>` is xgo's name for the target OS platform
 (e.g. `linux`, `android`...) while `<ARCH>` is xgo's name for the target hardware
 architecture (e.g. `amd64`, `arm-6`...).
 
+To cross-compile to another system, you may either create a different `build`
+directory, or reuse the same directory and just remove the `CMakeCache.txt` file (thus
+you can reuse some downloads and build tools).  Just remember to point CMake to the
+proper toolchain file.  For the previous Raspbian example:
+
+```
+cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/toolchain-linux-armhf-gcc6.cmake ..
+make
+```
+
+This will create the _libipfs-cache-linux-arm-6.a_ library and similarly named
+versions of the example programs.
+
 ## Using the examples
 
 The _injector_ is a program which manipulates the IPFS key/value database. It does so
