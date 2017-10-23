@@ -11,11 +11,18 @@ glue between C++ and IPFS.  Building that source requires a recent version of Go
 avoid extra system dependencies, the build process automatically downloads the Go
 system and builds IPFS itself.
 
-In summary, the only build dependencies are:
+The build process is able to compile the IPFS Cache to different platforms with the
+help of [xgo](https://github.com/karalabe/xgo) and a properly configured
+cross-compilation environment.
+
+In summary, the minimum build dependencies are:
 
 * `cmake` 3.5+
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
+* A [Docker](https://www.docker.com/) setup with the `karalabe/xgo-latest` container
+
+To the date, the build process has only been tested on 64-bit GNU/Linux platforms.
 
 ## Building
 
