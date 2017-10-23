@@ -34,8 +34,11 @@ $ cmake ..
 $ make
 ```
 
-On success, the _build_ directory shall contain the _libipfs-cache.a_ static library
-and two example programs: _injector_ and _client_.
+On success, the _build_ directory shall contain the _libipfs-cache-<PLAT>-<ARCH>.a_
+static library and two example programs: _injector-<PLAT>-<ARCH>_ and
+_client-<PLAT>-<ARCH>_.  `<PLAT>` is xgo's name for the target OS platform
+(e.g. `linux`, `android`...) while `<ARCH>` is xgo's name for the target hardware
+architecture (e.g. `amd64`, `arm-6`...).
 
 ## Using the examples
 
