@@ -24,6 +24,44 @@ In summary, the minimum build dependencies are:
 
 To the date, the build process has only been tested on 64-bit GNU/Linux platforms.
 
+## Preparing the build environment
+
+### Debian-based distributions
+
+Besides the basic C/C++ build environment (which you may get by installing
+`build-essential`), you will need the `cmake` and `curl` packages and the following
+Boost libraries:
+
+  - `libboost-system-dev`
+  - `libboost-coroutine-dev`
+  - `libboost-program-options-dev`
+
+For xgo's Docker back-end, you will need to have the `docker.io` package installed and
+to run `docker pull karalabe/xgo-latest`.
+
+If you actually intend to cross-compile you will need proper C/C++ cross-compiler
+packages, Boost libraries for the target system and a toolchain file for CMake to use
+them.  As an example, for building binaries able to run on Raspbian Stretch on the
+Raspberry Pi:
+
+  - Install the `gcc-6-arm-linux-gnueabihf` and `g++-6-arm-linux-gnueabihf` packages.
+  - As indicated in <https://wiki.debian.org/Multiarch/HOWTO>, add the new
+    architecture with `dpkg --add-architecture armhf` and update your package list.
+  - Install the Boost libraries matching the target distribution, with the proper
+    architecture suffix:
+
+      - `libboost-system1.62-dev:armhf`
+      - `libboost-coroutine1.62-dev:armhf`
+      - `libboost-program-options1.62-dev:armhf`
+
+  - Create a toolchain file (e.g. `toolchain-linux-armhf-gcc6.cmake`) containing:
+
+        set(CMAKE_SYSTEM_NAME Linux)
+        set(CMAKE_SYSTEM_PROCESSOR armv6l)
+
+        set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabihf-gcc-6)
+        set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabihf-g++-6)
+
 ## Building
 
 ```
