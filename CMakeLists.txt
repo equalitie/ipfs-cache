@@ -24,6 +24,11 @@ else()
     message(FATAL_ERROR "unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+# Android/ARM under xgo does not accept finer hints on architecture.
+if("${TARGET_PLATFORM}" MATCHES "^android.*" AND "${TARGET_ARCHITECTURE}" MATCHES "^arm.*" )
+    set(TARGET_ARCHITECTURE "arm")
+endif()
+
 set(TARGET "${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
 
 include(ExternalProject)
