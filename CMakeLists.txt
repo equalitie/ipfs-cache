@@ -17,7 +17,7 @@ endif()
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
     set(TARGET_ARCHITECTURE "amd64")
 elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
-    set(TARGET_ARCHITECTURE "arm64")
+    set(TARGET_ARCHITECTURE "arm64")  # note: Go fails to build c-archive for Android/ARM64
 elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "^arm.*")
     set(TARGET_ARCHITECTURE "arm-6")
 else()
