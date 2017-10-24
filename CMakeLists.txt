@@ -25,7 +25,7 @@ else()
 endif()
 
 # Android/ARM under xgo does not accept finer hints on architecture.
-if("${TARGET_PLATFORM}" MATCHES "^android.*" AND "${TARGET_ARCHITECTURE}" MATCHES "^arm.*" )
+if("${TARGET_PLATFORM}" MATCHES "^android-.*" AND "${TARGET_ARCHITECTURE}" MATCHES "^arm-.*" )
     set(TARGET_ARCHITECTURE "arm")
 endif()
 
