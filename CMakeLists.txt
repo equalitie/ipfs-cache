@@ -8,7 +8,7 @@ project(_dummy)  # just to force loading cross-compilation variables
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     set(TARGET_PLATFORM "linux")
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
-    set(TARGET_PLATFORM "android")
+    set(TARGET_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
 else()
     message(FATAL_ERROR "unsupported platform ${CMAKE_SYSTEM_NAME}")
 endif()
