@@ -59,6 +59,12 @@ externalproject_add(beast
 
 set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
 
+# Android does not support POSIX file:
+# <https://github.com/boostorg/beast/issues/800>.
+if("${TARGET_PLATFORM}" MATCHES "^android-.*")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_BEAST_NO_POSIX_FILE=0")
+endif()
+
 ################################################################################
 externalproject_add(golang
     URL https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz
