@@ -135,10 +135,9 @@ add_custom_command(
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
          && export PATH=$ENV{PATH}:${GOPATH}/bin
-         && mkdir -p ${GOPATH}/src/github.com/equalitie
-         && cd ${GOPATH}/src/github.com/equalitie
-         && ln -sfT ${CMAKE_SOURCE_DIR} ipfs-cache
-         && cd ipfs-cache
+         && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
+         && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
+         && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
          && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -dest ${BINDING_DIR} ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.a ${BINDING_DIR}/ipfs_bindings.a)
