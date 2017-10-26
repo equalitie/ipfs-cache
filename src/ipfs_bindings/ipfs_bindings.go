@@ -24,7 +24,7 @@ import (
 	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
-// #cgo CFLAGS: -DIN_GO=1 -ggdb -I ../../include
+// #cgo CFLAGS: -DIN_GO=1 -ggdb -I ${SRCDIR}/../../include
 //#include <stdlib.h>
 //#include <stddef.h>
 //#include <stdint.h>
