@@ -128,7 +128,7 @@ include_directories(
 
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${BINDING_DIR}/ipfs_bindings.a
+           ${BINDING_DIR}/ipfs_bindings.so
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
@@ -138,9 +138,9 @@ add_custom_command(
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
-         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-archive -dest ${BINDING_DIR} ./src/ipfs_bindings
+         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-shared -dest ${BINDING_DIR} ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-*.a ${BINDING_DIR}/ipfs_bindings.a)
+         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${BINDING_DIR}/ipfs_bindings.so)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
@@ -148,7 +148,7 @@ file(GLOB sources
 
 add_library(ipfs-cache-${TARGET} STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
-    ${BINDING_DIR}/ipfs_bindings.a)
+    ${BINDING_DIR}/ipfs_bindings.so)
 
 add_dependencies(ipfs-cache-${TARGET} json ipfs xgo)
 
