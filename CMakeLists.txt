@@ -169,7 +169,8 @@ add_executable(client-${TARGET} ${sources})
 add_dependencies(client-${TARGET} ipfs-cache-${TARGET})
 
 target_link_libraries(client-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.a
+    ${CMAKE_BINARY_DIR}/ipfs_bindings/ipfs_bindings-${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -190,7 +191,8 @@ add_executable(injector-${TARGET} ${sources})
 add_dependencies(injector-${TARGET} ipfs-cache-${TARGET} beast)
 
 target_link_libraries(injector-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.a
+    ${CMAKE_BINARY_DIR}/ipfs_bindings/ipfs_bindings-${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
