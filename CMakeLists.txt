@@ -146,19 +146,11 @@ file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_library(ipfs-cache-${TARGET} STATIC ${sources}
+add_library(ipfs-cache-${TARGET} SHARED ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
     ${BINDING_DIR}/ipfs_bindings.so)
 
 add_dependencies(ipfs-cache-${TARGET} json ipfs xgo)
-
-# Append object files from  ipfs_bindings.a into libipfs-cache.a.
-add_custom_command(TARGET ipfs-cache-${TARGET}
-    POST_BUILD
-    COMMAND cd ${BINDING_DIR}
-         && ar -x ipfs_bindings.a
-         && cd ${CMAKE_BINARY_DIR}
-         && ar -qc libipfs-cache-${TARGET}.a ${BINDING_DIR}/*.o)
 
 ################################################################################
 project(client)
