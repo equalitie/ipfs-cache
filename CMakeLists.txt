@@ -142,7 +142,8 @@ add_custom_command(
          && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
          && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-shared -dest ${BINDING_DIR} ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
+         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
+         && chmod +x ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
