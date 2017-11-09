@@ -25,6 +25,7 @@ import (
 )
 
 // #cgo CFLAGS: -DIN_GO=1 -ggdb -I ${SRCDIR}/../../include
+// #cgo android LDFLAGS: -Wl,--unresolved-symbols=ignore-all
 //#include <stdlib.h>
 //#include <stddef.h>
 //#include <stdint.h>
