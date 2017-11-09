@@ -128,7 +128,7 @@ include_directories(
 
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${CMAKE_BINARY_DIR}/libipfs_bindings-${TARGET}.so
+           ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
@@ -140,7 +140,7 @@ add_custom_command(
          && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
          && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-shared -dest ${BINDING_DIR} ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${CMAKE_BINARY_DIR}/libipfs_bindings-${TARGET}.so)
+         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
@@ -148,7 +148,7 @@ file(GLOB sources
 
 add_library(ipfs-cache-${TARGET} SHARED ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
-    ${CMAKE_BINARY_DIR}/libipfs_bindings-${TARGET}.so)
+    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
 
 add_dependencies(ipfs-cache-${TARGET} json ipfs xgo)
 
@@ -169,7 +169,7 @@ add_executable(client-${TARGET} ${sources})
 add_dependencies(client-${TARGET} ipfs-cache-${TARGET})
 
 target_link_libraries(client-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs_bindings-${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
     ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
     ${Boost_LIBRARIES})
 
@@ -191,7 +191,7 @@ add_executable(injector-${TARGET} ${sources})
 add_dependencies(injector-${TARGET} ipfs-cache-${TARGET} beast)
 
 target_link_libraries(injector-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs_bindings-${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
     ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
     ${Boost_LIBRARIES})
 
