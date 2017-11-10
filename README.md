@@ -12,15 +12,13 @@ avoid extra system dependencies, the build process automatically downloads the G
 system and builds IPFS itself.
 
 The build process is able to compile the IPFS Cache to different platforms with the
-help of [xgo](https://github.com/karalabe/xgo) and a properly configured
-cross-compilation environment.
+help of a properly configured cross-compilation environment.
 
 In summary, the minimum build dependencies are:
 
 * `cmake` 3.5+
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
-* A [Docker](https://www.docker.com/) setup with the `karalabe/xgo-latest` container
 
 To the date, the build process has only been tested on 64-bit GNU/Linux platforms.
 
@@ -35,9 +33,6 @@ Boost libraries:
   - `libboost-system-dev`
   - `libboost-coroutine-dev`
   - `libboost-program-options-dev`
-
-For xgo's Docker back-end, you will need to have the `docker.io` package installed and
-to run `docker pull karalabe/xgo-latest`.
 
 If you actually intend to cross-compile you will need proper C/C++ cross-compiler
 packages, Boost libraries for the target system and a toolchain file for CMake to use
@@ -72,11 +67,11 @@ $ cmake ..
 $ make
 ```
 
-On success, the _build_ directory shall contain the _libipfs-cache-<PLAT>-<ARCH>.a_
-static library and two example programs: _injector-<PLAT>-<ARCH>_ and
-_client-<PLAT>-<ARCH>_.  `<PLAT>` is xgo's name for the target OS platform
-(e.g. `linux`, `android`...) while `<ARCH>` is xgo's name for the target hardware
-architecture (e.g. `amd64`, `arm-6`...).
+On success, the _build_ directory shall contain the _libipfs-bindings--<SYS>--<PROC>.so_
+and _libipfs-cache--<SYS>--<PROC>.so_ shared libraries and two example programs:
+_injector--<SYS>--<PROC>_ and _client--<SYS>--<PROC>_.  `<SYS>` is CMake's
+`CMAKE_SYSTEM_NAME` (e.g. `Linux`, `Android`...) while `<PROC>` is CMake's
+`CMAKE_SYSTEM_PROCESSOR` (e.g. `x86_64`, `armv6l`...).
 
 To cross-compile to another system, you may either create a different `build`
 directory, or reuse the same directory and just remove the `CMakeCache.txt` file (thus
@@ -88,7 +83,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/toolchain-linux-armhf-gcc6.cmake ..
 make
 ```
 
-This will create the _libipfs-cache-linux-arm-6.a_ library and similarly named
+This will create the _libipfs-cache--Linux--armv6l.so_ library and similarly named
 versions of the example programs.
 
 ## Using the examples

@@ -4,34 +4,36 @@ set(GLOB BOOST_VERSION 1.55)
 ################################################################################
 project(_dummy)  # just to force loading cross-compilation variables
 
-# Convert system name into xgo's platform.
+# Convert system name into GOOS.
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-    set(TARGET_PLATFORM "linux")
+    set(GOOS "linux")
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
-    set(TARGET_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
+    set(GOOS "android")
 else()
-    message(FATAL_ERROR "unsupported platform ${CMAKE_SYSTEM_NAME}")
+    message(FATAL_ERROR "unsupported system name ${CMAKE_SYSTEM_NAME}")
 endif()
 
-# Convert system processor into xgo's architecture.
+# Convert system processor into GOARCH (and maybe GOARM).
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
-    set(TARGET_ARCHITECTURE "amd64")
+    set(GOARCH "amd64")
 elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
-    set(TARGET_ARCHITECTURE "arm64")
+    set(GOARCH "arm64")
 elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
-    set(TARGET_ARCHITECTURE "arm-7")
+    set(GOARCH "arm")
+    set(GOARM "7")
 elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "^arm.*")
-    set(TARGET_ARCHITECTURE "arm-6")
+    set(GOARCH "arm")
+    set(GOARM "6")
 else()
-    message(FATAL_ERROR "unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
+    message(FATAL_ERROR "unsupported system processor ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-# Android/ARM under xgo does not accept finer hints on architecture.
-if("${TARGET_PLATFORM}" MATCHES "^android-.*" AND "${TARGET_ARCHITECTURE}" MATCHES "^arm-.*" )
-    set(TARGET_ARCHITECTURE "arm")
+# Build target tag with the Android API version if relevant.
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    set(TARGET "${CMAKE_SYSTEM_NAME}${CMAKE_SYSTEM_VERSION}--${CMAKE_SYSTEM_PROCESSOR}")
+else()
+    set(TARGET "${CMAKE_SYSTEM_NAME}--${CMAKE_SYSTEM_PROCESSOR}")
 endif()
-
-set(TARGET "${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}")
 
 include(ExternalProject)
 ################################################################################
@@ -48,7 +50,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings-${TARGET}")
+set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings--${TARGET}")
 
 ################################################################################
 externalproject_add(beast
@@ -63,7 +65,7 @@ set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
 
 # Android does not support POSIX file:
 # <https://github.com/boostorg/beast/issues/800>.
-if("${TARGET_PLATFORM}" MATCHES "^android-.*")
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_BEAST_NO_POSIX_FILE=0")
 endif()
 
@@ -98,23 +100,6 @@ externalproject_add(ipfs
     PREFIX "ipfs")
 
 ################################################################################
-externalproject_add(xgo
-    DOWNLOAD_COMMAND mkdir -p ${GOPATH}
-                  && export GOPATH=${GOPATH}
-                  && export GOROOT=${GOROOT}
-                  && export PATH=${GOROOT}/bin:$ENV{PATH}
-                  && go get -u -d github.com/karalabe/xgo
-    BUILD_ALWAYS 1
-    DEPENDS golang
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND export GOPATH=${GOPATH}
-               && export GOROOT=${GOROOT}
-               && export PATH=${GOROOT}/bin:$ENV{PATH}
-               && go get github.com/karalabe/xgo
-    INSTALL_COMMAND ""
-    PREFIX "xgo")
-
-################################################################################
 project(ipfs-cache)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
@@ -130,30 +115,34 @@ include_directories(
 
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
+           ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so
     DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
+         && export GOOS=${GOOS}
+         && export GOARCH=${GOARCH}
+         && export GOARM=${GOARM}
+         && export CGO_ENABLED=1
+         && export CC=${CMAKE_C_COMPILER}
          && export PATH=${GOROOT}/bin:$ENV{PATH}
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
-         && xgo --targets=${TARGET_PLATFORM}/${TARGET_ARCHITECTURE} -buildmode=c-shared -dest ${BINDING_DIR} ./src/ipfs_bindings
-         && cp -f ${BINDING_DIR}/ipfs_bindings-*.h ${BINDING_DIR}/ipfs_bindings.h
-         && cp -f ${BINDING_DIR}/ipfs_bindings-*.so ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
-         && chmod +x ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
+         && go build --buildmode=c-shared -o ${BINDING_DIR}/ipfs_bindings.so ./src/ipfs_bindings
+         && cp -f ${BINDING_DIR}/ipfs_bindings.so ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so
+         && chmod +x ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
 
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/src/*.h"
   "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_library(ipfs-cache-${TARGET} SHARED ${sources}
+add_library(ipfs-cache--${TARGET} SHARED ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
-    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so)
+    ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
 
-add_dependencies(ipfs-cache-${TARGET} json ipfs xgo)
+add_dependencies(ipfs-cache--${TARGET} json ipfs)
 
 ################################################################################
 project(client)
@@ -167,13 +156,13 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/client.cpp")
 
-add_executable(client-${TARGET} ${sources})
+add_executable(client--${TARGET} ${sources})
 
-add_dependencies(client-${TARGET} ipfs-cache-${TARGET})
+add_dependencies(client--${TARGET} ipfs-cache--${TARGET})
 
-target_link_libraries(client-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
+target_link_libraries(client--${TARGET}
+    ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-cache--${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
@@ -189,13 +178,13 @@ include_directories(
 file(GLOB sources
   "${CMAKE_SOURCE_DIR}/example/injector.cpp")
 
-add_executable(injector-${TARGET} ${sources})
+add_executable(injector--${TARGET} ${sources})
 
-add_dependencies(injector-${TARGET} ipfs-cache-${TARGET} beast)
+add_dependencies(injector--${TARGET} ipfs-cache--${TARGET} beast)
 
-target_link_libraries(injector-${TARGET}
-    ${CMAKE_BINARY_DIR}/libipfs-bindings-${TARGET}.so
-    ${CMAKE_BINARY_DIR}/libipfs-cache-${TARGET}.so
+target_link_libraries(injector--${TARGET}
+    ${CMAKE_BINARY_DIR}/libipfs-bindings--${TARGET}.so
+    ${CMAKE_BINARY_DIR}/libipfs-cache--${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
