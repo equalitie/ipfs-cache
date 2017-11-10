@@ -51,7 +51,7 @@ externalproject_add(ipfs
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
                   && export GOPATH=${GOPATH}
                   && export GOROOT=${GOROOT}
-                  && export PATH=$ENV{PATH}:${GOROOT}/bin
+                  && export PATH=${GOROOT}/bin:$ENV{PATH}
                   && go get -u -d github.com/ipfs/go-ipfs
                   && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
                   && git checkout ${IPFS_GO_COMMIT}
@@ -60,7 +60,7 @@ externalproject_add(ipfs
     CONFIGURE_COMMAND ""
     BUILD_COMMAND export GOPATH=${GOPATH}
                && export GOROOT=${GOROOT}
-               && export PATH=$ENV{PATH}:${GOROOT}/bin
+               && export PATH=${GOROOT}/bin:$ENV{PATH}
                && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
                && make install
     INSTALL_COMMAND ""
@@ -89,7 +89,7 @@ add_custom_command(
          && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
-         && export PATH=$ENV{PATH}:${GOROOT}/bin
+         && export PATH=${GOROOT}/bin:$ENV{PATH}
          && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
