@@ -84,14 +84,14 @@ externalproject_add(ipfs
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
                   && export GOPATH=${GOPATH}
                   && export GOROOT=${GOROOT}
-                  && export PATH=$ENV{PATH}:${GOROOT}/bin
+                  && export PATH=${GOROOT}/bin:$ENV{PATH}
                   && go get -u -d github.com/ipfs/go-ipfs
     BUILD_ALWAYS 1
     DEPENDS golang
     CONFIGURE_COMMAND ""
     BUILD_COMMAND export GOPATH=${GOPATH}
                && export GOROOT=${GOROOT}
-               && export PATH=$ENV{PATH}:${GOROOT}/bin
+               && export PATH=${GOROOT}/bin:$ENV{PATH}
                && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
                && make deps
     INSTALL_COMMAND ""
@@ -102,14 +102,14 @@ externalproject_add(xgo
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
                   && export GOPATH=${GOPATH}
                   && export GOROOT=${GOROOT}
-                  && export PATH=$ENV{PATH}:${GOROOT}/bin
+                  && export PATH=${GOROOT}/bin:$ENV{PATH}
                   && go get -u -d github.com/karalabe/xgo
     BUILD_ALWAYS 1
     DEPENDS golang
     CONFIGURE_COMMAND ""
     BUILD_COMMAND export GOPATH=${GOPATH}
                && export GOROOT=${GOROOT}
-               && export PATH=$ENV{PATH}:${GOROOT}/bin
+               && export PATH=${GOROOT}/bin:$ENV{PATH}
                && go get github.com/karalabe/xgo
     INSTALL_COMMAND ""
     PREFIX "xgo")
@@ -136,7 +136,7 @@ add_custom_command(
     COMMAND mkdir -p ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
-         && export PATH=$ENV{PATH}:${GOPATH}/bin
+         && export PATH=${GOROOT}/bin:$ENV{PATH}
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
