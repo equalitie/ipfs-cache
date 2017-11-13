@@ -36,8 +36,10 @@ Boost libraries:
 
 If you actually intend to cross-compile you will need proper C/C++ cross-compiler
 packages, Boost libraries for the target system and a toolchain file for CMake to use
-them.  As an example, for building binaries able to run on Raspbian Stretch on the
-Raspberry Pi:
+them.
+
+As an example, for building binaries in a Debian Strech machine which are able to run
+on _Raspbian Stretch_ on the Raspberry Pi:
 
   - Install the `gcc-6-arm-linux-gnueabihf` and `g++-6-arm-linux-gnueabihf` packages.
   - As indicated in <https://wiki.debian.org/Multiarch/HOWTO>, add the new
@@ -56,6 +58,39 @@ Raspberry Pi:
 
         set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabihf-gcc-6)
         set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabihf-g++-6)
+
+For building binaries able to run in _Android KitKat and above on ARM_ processors you
+will need a Clang/LLVM standalone toolchain created with the Android NDK.  Assuming
+that the NDK is under `~/opt/android-ndk-r15c`, you may run:
+
+    $ ~/opt/android-ndk-r15c/build/tools/make-standalone-toolchain.sh \
+      --platform=android-19 --arch=arm --stl=libc++ \
+      --install-dir=$HOME/opt/ndk-android19-arm-libcpp
+
+You will also need to build the Boost libraries for this platform.  You may use
+[Boost for Android](https://github.com/dec1/Boost-for-Android).  Assuming that Boost
+source is in `~/src/boost/<BOOST_VERSION>`, edit `doIt.sh` and:
+
+  - set `BOOST_SRC_DIR` to `$HOME/src/boost`
+  - set `BOOST_VERSION` to the `<BOOST_VERSION>` above
+  - set `GOOGLE_DIR` to `$HOME/opt/android-ndk-r15c`
+  - modify `build-boost.sh` arguments, set `--version=$BOOST_VERSION`,
+    `--stdlibs="llvm-3.5"`, `--linkage="shared"` and `--abis` to the desired
+    architectures (`armeabi-v7a` in our example)
+
+Create the `llvm-3.5` link as indicated in Boost for Android's readme and run
+`./doIt.sh` to build the Boost libraries.  This will create the directory
+`build/boost/<BOOST_VERSION>`.
+
+After the previous steps you can use a CMake toolchain file like the following one:
+
+    set(CMAKE_SYSTEM_NAME Android)
+    set(CMAKE_SYSTEM_VERSION 19)
+    set(CMAKE_ANDROID_ARCH_ABI armeabi-v7a)
+    set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN $ENV{HOME}/opt/ndk-android19-arm-libcpp)
+
+    set(BOOST_INCLUDEDIR /path/to/Boost-for-Android/build/boost/<BOOST_VERSION>/include)
+    set(BOOST_LIBRARYDIR /path/to/Boost-for-Android/build/boost/<BOOST_VERSION>/libs/${CMAKE_ANDROID_ARCH_ABI}/llvm-3.5)
 
 ## Building
 
