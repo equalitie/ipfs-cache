@@ -11,35 +11,32 @@ glue between C++ and IPFS.  Building that source requires a recent version of Go
 avoid extra system dependencies, the build process automatically downloads the Go
 system and builds IPFS itself.
 
-The build process is able to compile the IPFS Cache to different platforms with the
-help of a properly configured cross-compilation environment.
-
 In summary, the minimum build dependencies are:
 
 * `cmake` 3.5+
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
 
+For Debian, this translates to the following pakcages:
+
+* `build-essential`
+* `cmake`
+* `curl`
+* `libboost-system-dev`
+* `libboost-coroutine-dev`
+* `libboost-program-options-dev`
+
+The build process is able to compile the IPFS Cache to different platforms with the
+help of a properly configured cross-compilation environment.  If you actually intend
+to cross-compile you will need proper C/C++ cross-compiler packages, Boost libraries
+for the target system and a toolchain file for CMake to use them.
+
 To the date, the build process has only been tested on 64-bit GNU/Linux platforms.
 
-## Preparing the build environment
+### Linux cross-compilation example
 
-### Debian-based distributions
-
-Besides the basic C/C++ build environment (which you may get by installing
-`build-essential`), you will need the `cmake` and `curl` packages and the following
-Boost libraries:
-
-  - `libboost-system-dev`
-  - `libboost-coroutine-dev`
-  - `libboost-program-options-dev`
-
-If you actually intend to cross-compile you will need proper C/C++ cross-compiler
-packages, Boost libraries for the target system and a toolchain file for CMake to use
-them.
-
-As an example, for building binaries in a Debian Strech machine which are able to run
-on _Raspbian Stretch_ on the Raspberry Pi:
+For building binaries in a Debian Strech machine which are able to run on _Raspbian
+Stretch_ on the Raspberry Pi:
 
   - Install the `gcc-6-arm-linux-gnueabihf` and `g++-6-arm-linux-gnueabihf` packages.
   - As indicated in <https://wiki.debian.org/Multiarch/HOWTO>, add the new
@@ -58,6 +55,8 @@ on _Raspbian Stretch_ on the Raspberry Pi:
 
         set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabihf-gcc-6)
         set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabihf-g++-6)
+
+### Android cross-compilation example
 
 For building binaries able to run in _Android KitKat and above on ARM_ processors you
 will need a Clang/LLVM standalone toolchain created with the Android NDK.  Assuming
