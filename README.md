@@ -91,11 +91,3 @@ run it as so:
 ```
 $ ./client --repo <PATH TO IPFS REPOSITORY> --ipns <DATABASE IPNS> --key my_key
 ```
-
-**NOTE**: If the _client_ and the _injector_ programs are being executed on the
-same PC, they need to start their IPFS services on different ports. Otherwise,
-the program that executes later will not work properly. To make sure this
-holds, modify the `Addresses => Swarm` JSON entries in either _client's_ or
-_injector's_ `<PATH TO IPFS REPOSITORY>/config` file.
-
-
