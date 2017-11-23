@@ -41,12 +41,20 @@ set(GOROOT "${CMAKE_BINARY_DIR}/golang/src/golang")
 set(GOPATH "${CMAKE_BINARY_DIR}/gopath")
 
 ################################################################################
+# IPFS releases
+set(IPFS_V0_4_12 "8eb7956622ee1a340398d5e1a00ab5f7588cb23d")
+set(IPFS_V0_4_13 "cc01b7f188622e7148ce041b9d09252c85041d9f")
+
+set(IPFS_GO_COMMIT ${IPFS_V0_4_13})
+
 externalproject_add(ipfs
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
                   && export GOPATH=${GOPATH}
                   && export GOROOT=${GOROOT}
                   && export PATH=$ENV{PATH}:${GOROOT}/bin
                   && go get -u -d github.com/ipfs/go-ipfs
+                  && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
+                  && git checkout ${IPFS_GO_COMMIT}
     BUILD_ALWAYS 1
     DEPENDS golang
     CONFIGURE_COMMAND ""
