@@ -22,6 +22,7 @@ For Debian, this translates to the following packages:
 * `build-essential`
 * `cmake`
 * `curl`
+* `libboost-dev`
 * `libboost-system-dev`
 * `libboost-coroutine-dev`
 * `libboost-program-options-dev`
