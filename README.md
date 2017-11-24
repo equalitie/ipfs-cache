@@ -17,7 +17,7 @@ In summary, the minimum build dependencies are:
 * `g++` capable of C++14
 * The [Boost library](http://www.boost.org/)
 
-For Debian, this translates to the following pakcages:
+For Debian, this translates to the following packages:
 
 * `build-essential`
 * `cmake`
