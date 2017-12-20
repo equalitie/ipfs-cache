@@ -12,9 +12,6 @@
 using namespace std;
 using namespace ipfs_cache;
 
-namespace asio = boost::asio;
-namespace sys  = boost::system;
-
 static Json load_db(const string& path_to_repo)
 {
     Json db;

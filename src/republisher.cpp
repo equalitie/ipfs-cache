@@ -5,9 +5,6 @@
 using namespace std;
 using namespace ipfs_cache;
 
-namespace asio = boost::asio;
-namespace sys  = boost::system;
-
 using Timer = asio::steady_timer;
 using Clock = chrono::steady_clock;
 static const Timer::duration publish_duration = chrono::minutes(10);

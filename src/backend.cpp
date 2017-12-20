@@ -8,8 +8,6 @@
 
 using namespace ipfs_cache;
 using namespace std;
-namespace asio = boost::asio;
-namespace sys  = boost::system;
 
 namespace {
     const uint32_t CID_SIZE = 46;
@@ -86,7 +84,7 @@ string Backend::ipns_id() const {
     return ret;
 }
 
-void Backend::publish(const string& cid, Timer::duration d, std::function<void(sys::error_code)> cb)
+void Backend::publish_(const string& cid, Timer::duration d, std::function<void(sys::error_code)> cb)
 {
     using namespace std::chrono;
 
@@ -98,26 +96,21 @@ void Backend::publish(const string& cid, Timer::duration d, std::function<void(s
                          , (void*) new Handle<>{_impl, move(cb)});
 }
 
-void Backend::resolve(const string& ipns_id, function<void(sys::error_code, string)> cb)
+void Backend::resolve_(const string& ipns_id, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_resolve( (char*) ipns_id.data()
                          , (void*) Handle<string>::call_data
                          , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
-void Backend::add(const uint8_t* data, size_t size, function<void(sys::error_code, string)> cb)
+void Backend::add_(const uint8_t* data, size_t size, function<void(sys::error_code, string)> cb)
 {
     go_ipfs_cache_add( (void*) data, size
                      , (void*) Handle<string>::call_data
                      , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
-void Backend::add(const string& s, function<void(sys::error_code, string)> cb)
-{
-    add((const uint8_t*) s.data(), s.size(), move(cb));
-}
-
-void Backend::cat(const string& ipfs_id, function<void(sys::error_code, string)> cb)
+void Backend::cat_(const string& ipfs_id, function<void(sys::error_code, string)> cb)
 {
     assert(ipfs_id.size() == CID_SIZE);
 
