@@ -19,7 +19,6 @@ namespace ipfs_cache {
 
 class Backend;
 class Republisher;
-class Timer;
 using Json = nlohmann::json;
 
 class Db {
