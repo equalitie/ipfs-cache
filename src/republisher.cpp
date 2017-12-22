@@ -15,6 +15,17 @@ Republisher::Republisher(Backend& backend)
     , _timer(_backend.get_io_service())
 {}
 
+void Republisher::publish(const std::string& cid, asio::yield_context yield)
+{
+    using Handler = asio::handler_type< asio::yield_context
+                                      , void(sys::error_code)>::type;
+
+    Handler handler(move(yield));
+    asio::async_result<Handler> result(handler);
+    publish(cid, move(handler));
+    result.get();
+}
+
 void Republisher::publish(const std::string& cid, std::function<void(sys::error_code)> cb)
 {
     _to_publish = cid;

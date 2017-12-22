@@ -1,10 +1,15 @@
 #pragma once
 
 #include <boost/system/error_code.hpp>
+#include <boost/asio/spawn.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <string>
 #include <queue>
 #include <list>
 #include <json.hpp>
+
+#include "namespaces.h"
+#include "condition_variable.h"
 
 namespace boost { namespace asio {
     class io_service;
@@ -22,9 +27,9 @@ public:
     Db(Backend&, bool is_client, std::string path_to_repo, std::string ipns);
 
     void update( std::string key, std::string value
-               , std::function<void(boost::system::error_code)>);
-    void query( std::string key
-              , std::function<void(boost::system::error_code, std::string)>);
+               , std::function<void(sys::error_code)>);
+
+    std::string query(std::string key, sys::error_code& ec);
 
     boost::asio::io_service& get_io_service();
 
@@ -35,18 +40,16 @@ public:
     ~Db();
 
 private:
-    void start_db_download();
-    void on_db_download(Json&& json);
-    void replay_queued_tasks();
     void merge(const Json&);
-    void start_updating();
-    void initialize(Json&);
 
-    template<class F> void download_database(const std::string&, F&&);
-    template<class F> void upload_database(const Json&, F&&);
+    Json download_database(const std::string& ipns, sys::error_code&, asio::yield_context);
+
+    std::string upload_database(const Json&, sys::error_code&, asio::yield_context);
+
+    void continuously_upload_db(asio::yield_context);
+    void continuously_download_db(asio::yield_context);
 
 private:
-    bool _is_uploading = false;
     const bool _is_client;
     const std::string _path_to_repo;
     Json _json;
@@ -54,9 +57,10 @@ private:
     std::string _ipfs; // Last known
     Backend& _backend;
     std::unique_ptr<Republisher> _republisher;
-    std::list<std::function<void(boost::system::error_code)>> _upload_callbacks;
+    ConditionVariable _has_callbacks;
+    std::list<std::function<void(sys::error_code)>> _upload_callbacks;
     std::shared_ptr<bool> _was_destroyed;
-    std::unique_ptr<Timer> _download_timer;
+    asio::steady_timer _download_timer;
 };
 
 } // ipfs_cache namespace

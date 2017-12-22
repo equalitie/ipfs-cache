@@ -1,10 +1,13 @@
 #pragma once
 
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/spawn.hpp>
 #include <boost/system/error_code.hpp>
 #include <string>
 #include <memory>
 #include <list>
+
+#include "namespaces.h"
 
 namespace ipfs_cache {
 
@@ -24,6 +27,8 @@ public:
 
     void publish( const std::string&
                 , std::function<void(boost::system::error_code)>);
+
+    void publish(const std::string&, asio::yield_context);
 
     ~Republisher();
 
