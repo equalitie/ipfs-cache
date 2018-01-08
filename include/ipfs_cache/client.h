@@ -31,9 +31,9 @@ public:
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
     void get_content( std::string url
-                    , std::function<void(boost::system::error_code, std::string)>);
+                    , std::function<void(boost::system::error_code, Json)>);
 
-    std::string get_content(std::string url, boost::asio::yield_context);
+    Json get_content(std::string url, boost::asio::yield_context);
 
     const std::string& ipns() const;
     const std::string& ipfs() const;

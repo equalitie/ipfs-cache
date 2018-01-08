@@ -16,7 +16,7 @@ Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
 {
 }
 
-void Client::get_content(string url, function<void(sys::error_code, string)> cb)
+void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
 {
     auto& ios = _backend->get_io_service();
 
@@ -29,31 +29,34 @@ void Client::get_content(string url, function<void(sys::error_code, string)> cb)
     }
 
     if (ec) {
-        return ios.post([ ipfs_id = move(ipfs_id)
-                        , cb = move(cb)
-                        , ec] {
-                cb(ec, move(ipfs_id));
-            });
+        return ios.post([cb = move(cb), ec] { cb(ec, Json()); });
     }
 
     _backend->cat(ipfs_id, [cb = move(cb)] (sys::error_code ecc, string s) {
-            cb(ecc, move(s));
+            if (ecc) {
+                return cb(ecc, move(s));
+            }
+
+            try {
+                auto json = Json::parse(s);
+                cb(ecc, move(json));
+            }
+            catch (...) {
+                cb(make_error_code(error::error_parsing_json), Json());
+            }
         });
 }
 
-string Client::get_content(string url, asio::yield_context yield)
+Json Client::get_content(string url, asio::yield_context yield)
 {
     using handler_type = typename asio::handler_type
                            < asio::yield_context
-                           , void(sys::error_code, string)>::type;
+                           , void(sys::error_code, Json)>::type;
 
     handler_type handler(yield);
     asio::async_result<handler_type> result(handler);
 
-    get_content(move(url),
-        [h = move(handler)] (sys::error_code ec, string v) mutable {
-            h(ec, move(v));
-        });
+    get_content(move(url), handler);
 
     return result.get();
 }

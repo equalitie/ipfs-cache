@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <queue>
+#include <json.hpp>
 
 namespace boost { namespace asio {
     class io_service;
@@ -14,6 +15,7 @@ namespace ipfs_cache {
 
 struct Backend;
 struct Db;
+using Json = nlohmann::json;
 
 class Injector {
 public:
@@ -22,7 +24,7 @@ public:
 private:
     struct InsertEntry {
         std::string key;
-        std::string value;
+        Json        value;
         OnInsert    on_insert;
     };
 
@@ -44,11 +46,11 @@ public:
     // When testing or debugging, the content can be found here:
     // "https://ipfs.io/ipfs/" + <IPFS ID>
     void insert_content( std::string url
-                       , const std::string& content
+                       , const Json& content
                        , OnInsert);
 
     std::string insert_content( std::string url
-                              , const std::string& content
+                              , const Json& content
                               , boost::asio::yield_context);
 
     ~Injector();
