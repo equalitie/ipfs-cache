@@ -101,7 +101,11 @@ string now_as_string() {
 
 static
 boost::posix_time::ptime ptime_from_string(const string& s) {
-    return boost::posix_time::from_iso_extended_string(s);
+    try {
+        return boost::posix_time::from_iso_extended_string(s);
+    } catch(...) {
+        return boost::posix_time::ptime(boost::posix_time::not_a_date_time);
+    }
 }
 
 void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
