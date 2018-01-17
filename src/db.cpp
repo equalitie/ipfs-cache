@@ -58,7 +58,7 @@ Db::Db(Backend& backend, bool is_client, string path_to_repo, string ipns)
     , _was_destroyed(make_shared<bool>(false))
     , _download_timer(_backend.get_io_service())
 {
-    _json = load_db(_path_to_repo);
+    _local_db = load_db(_path_to_repo);
 
     auto& ios = get_io_service();
 
@@ -86,8 +86,8 @@ void initialize_db(Json& json, const string& ipns)
 
 void Db::update(string key, string value, function<void(sys::error_code)> cb)
 {
-    if (_json == Json()) {
-        initialize_db(_json, _ipns);
+    if (_local_db == Json()) {
+        initialize_db(_local_db, _ipns);
     }
 
     // An empty key will not add anything into the json structure but
@@ -95,7 +95,7 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
     // the injector wants to upload a database with no sites.
     if (!key.empty()) {
         try {
-            _json["sites"][key] = value;
+            _local_db["sites"][key] = value;
         }
         catch(...) {
             assert(0);
@@ -104,7 +104,7 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
 
     // TODO: When the database get's big, this will become costly to do
     // on each update, thus we need to think of a smarter solution.
-    save_db(_json, _path_to_repo);
+    save_db(_local_db, _path_to_repo);
 
     _upload_callbacks.push_back(move(cb));
     _has_callbacks.notify_one();
@@ -128,7 +128,7 @@ void Db::continuously_upload_db(asio::yield_context yield)
         auto last_i = --_upload_callbacks.end();
 
         sys::error_code ec;
-        upload_database(_json, ec, yield);
+        upload_database(_local_db, ec, yield);
 
         if (*wd || ec) return;
 
@@ -161,9 +161,9 @@ string Db::upload_database( const Json& json
 
 string Db::query(string key, sys::error_code& ec)
 {
-    auto sites_i = _json.find("sites");
+    auto sites_i = _local_db.find("sites");
 
-    if (sites_i == _json.end() || !sites_i->is_object()) {
+    if (sites_i == _local_db.end() || !sites_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return "";
     }
@@ -182,10 +182,10 @@ string Db::query(string key, sys::error_code& ec)
 void Db::merge(const Json& remote_db)
 {
     auto r_ipns_i = remote_db.find("ipns");
-    auto l_ipns_i = _json.find("ipns");
+    auto l_ipns_i = _local_db.find("ipns");
 
-    if (l_ipns_i == _json.end()) {
-        _json["ipns"] = r_ipns_i.value();
+    if (l_ipns_i == _local_db.end() && r_ipns_i != remote_db.end()) {
+        _local_db["ipns"] = r_ipns_i.value();
     }
 
     auto r_sites_i = remote_db.find("sites");
@@ -194,12 +194,12 @@ void Db::merge(const Json& remote_db)
         return;
     }
 
-    auto l_sites_i = _json.find("sites");
+    auto l_sites_i = _local_db.find("sites");
 
-    if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
+    if (l_sites_i == _local_db.end() || !l_sites_i->is_object()) {
         // XXX: Can these two lines be done in one command?
-        _json["sites"] = Json::object();
-        l_sites_i = _json.find("sites");
+        _local_db["sites"] = Json::object();
+        l_sites_i = _local_db.find("sites");
     }
 
     for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
@@ -261,7 +261,7 @@ void Db::continuously_download_db(asio::yield_context yield)
 
         // TODO: When the database get's big, this will become costly to do on
         // each download, thus we need to think of a smarter solution.
-        save_db(_json, _path_to_repo);
+        save_db(_local_db, _path_to_repo);
 
         _download_timer.expires_from_now(chrono::seconds(5));
         _download_timer.async_wait(yield[ec]);
@@ -276,7 +276,7 @@ asio::io_service& Db::get_io_service() {
 
 const Json& Db::json_db() const
 {
-    return _json;
+    return _local_db;
 }
 
 Db::~Db() {

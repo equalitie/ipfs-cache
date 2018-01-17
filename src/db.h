@@ -51,7 +51,7 @@ private:
 private:
     const bool _is_client;
     const std::string _path_to_repo;
-    Json _json;
+    Json _local_db;
     std::string _ipns;
     std::string _ipfs; // Last known
     Backend& _backend;
