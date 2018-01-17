@@ -2,6 +2,9 @@ cmake_minimum_required (VERSION 3.5)
 set(GLOB BOOST_VERSION 1.55)
 include(ExternalProject)
 ################################################################################
+option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
+
+################################################################################
 # TODO(peterj): Address sanitizer seems to cause segmentation faults on exit
 #               from main(?).
 #set(SANITIZE "-fsanitize=address")
@@ -118,6 +121,8 @@ set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOP
 set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
 
 ################################################################################
+if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
+################################################################################
 project(cache_client)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
@@ -158,4 +163,6 @@ target_link_libraries(cache_injector
     ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a
     ${Boost_LIBRARIES})
 
+################################################################################
+endif() # IPFS_CACHE_WITH_EXAMPLE_BINARIES
 ################################################################################
