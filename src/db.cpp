@@ -94,7 +94,7 @@ void initialize_db(Json& json, const string& ipns)
 }
 
 static
-string now_as_iso_string() {
+string now_as_string() {
     auto entry_date = boost::posix_time::microsec_clock::universal_time();
     return boost::posix_time::to_iso_extended_string(entry_date) + 'Z';
 }
@@ -111,7 +111,7 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
     if (!key.empty()) {
         try {
             _local_db["sites"][key] = {
-                { "date", now_as_iso_string() },
+                { "date", now_as_string() },
                 { "link", value }
             };
         }
