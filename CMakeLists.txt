@@ -14,19 +14,21 @@ externalproject_add(json
     INSTALL_COMMAND ""
     PREFIX json)
 
-set(JSON_DIR "${CMAKE_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_BINARY_DIR}/ipfs_bindings")
+set(JSON_DIR "${CMAKE_CURRENT_BINARY_DIR}/json/src/json/src")
+set(BINDING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ipfs_bindings")
 
 ################################################################################
-externalproject_add(beast
-  GIT_REPOSITORY https://github.com/inetic/beast
-  UPDATE_COMMAND ""
-  CONFIGURE_COMMAND ""
-  INSTALL_COMMAND ""
-  BUILD_COMMAND ""
-  PREFIX "beast")
+if(NOT TARGET beast)
+    externalproject_add(beast
+      GIT_REPOSITORY https://github.com/inetic/beast
+      UPDATE_COMMAND ""
+      CONFIGURE_COMMAND ""
+      INSTALL_COMMAND ""
+      BUILD_COMMAND ""
+      PREFIX "beast")
 
-set(BEAST_DIR "${CMAKE_BINARY_DIR}/beast/src/beast")
+    set(BEAST_DIR "${CMAKE_CURRENT_BINARY_DIR}/beast/src/beast")
+endif()
 
 ################################################################################
 externalproject_add(golang
@@ -37,8 +39,8 @@ externalproject_add(golang
     INSTALL_COMMAND ""
     PREFIX golang)
 
-set(GOROOT "${CMAKE_BINARY_DIR}/golang/src/golang")
-set(GOPATH "${CMAKE_BINARY_DIR}/gopath")
+set(GOROOT "${CMAKE_CURRENT_BINARY_DIR}/golang/src/golang")
+set(GOPATH "${CMAKE_CURRENT_BINARY_DIR}/gopath")
 
 ################################################################################
 # IPFS releases
@@ -78,23 +80,23 @@ include_directories(
     "${Boost_INCLUDE_DIR}"
     "${JSON_DIR}"
     "${BINDING_DIR}"
-    "${CMAKE_SOURCE_DIR}/include")
+    "./include")
 
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
            ${BINDING_DIR}/ipfs_bindings.a
-    DEPENDS ${CMAKE_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
-            ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
          && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
          && export PATH=${GOROOT}/bin:$ENV{PATH}
-         && go build --buildmode=c-archive ${CMAKE_SOURCE_DIR}/src/ipfs_bindings.go)
+         && go build --buildmode=c-archive ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings.go)
 
 file(GLOB sources
-  "${CMAKE_SOURCE_DIR}/src/*.h"
-  "${CMAKE_SOURCE_DIR}/src/*.cpp")
+  "./src/*.h"
+  "./src/*.cpp")
 
 add_library(ipfs-cache STATIC ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
@@ -107,48 +109,53 @@ add_custom_command(TARGET ipfs-cache
     POST_BUILD
     COMMAND cd ${BINDING_DIR}
          && ar -x ipfs_bindings.a
-         && cd ${CMAKE_BINARY_DIR}
+         && cd ${CMAKE_CURRENT_BINARY_DIR}
          && ar -qc libipfs-cache.a ${BINDING_DIR}/*.o)
 
 ################################################################################
-project(client)
+set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
+set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOPE)
+set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+
+################################################################################
+project(cache_client)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
-    "${CMAKE_SOURCE_DIR}/include")
+    "./include")
 
-file(GLOB sources
-  "${CMAKE_SOURCE_DIR}/example/client.cpp")
+set(sources
+  "./example/client.cpp")
 
-add_executable(client ${sources})
+add_executable(cache_client ${sources})
 
-add_dependencies(client ipfs-cache)
+add_dependencies(cache_client ipfs-cache)
 
-target_link_libraries(client
-    ${CMAKE_BINARY_DIR}/libipfs-cache.a
+target_link_libraries(cache_client
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a
     ${Boost_LIBRARIES})
 
 ################################################################################
-project(injector)
+project(cache_injector)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
     "${BEAST_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/include")
+    "./include")
 
-file(GLOB sources
-  "${CMAKE_SOURCE_DIR}/example/injector.cpp")
+set(sources
+  "./example/injector.cpp")
 
-add_executable(injector ${sources})
+add_executable(cache_injector ${sources})
 
-add_dependencies(injector ipfs-cache beast)
+add_dependencies(cache_injector ipfs-cache beast)
 
-target_link_libraries(injector
-    ${CMAKE_BINARY_DIR}/libipfs-cache.a
+target_link_libraries(cache_injector
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a
     ${Boost_LIBRARIES})
 
 ################################################################################
