@@ -11,10 +11,15 @@
 using namespace std;
 using namespace ipfs_cache;
 
-static Json load_db(const string& path_to_repo)
+static string path_to_db(const string& path_to_repo, const string& ipns)
+{
+    return path_to_repo + "/ipfs_cache_db." + ipns + ".json";
+}
+
+static Json load_db(const string& path_to_repo, const string& ipns)
 {
     Json db;
-    string path = path_to_repo + "/ipfs_cache_db.json";
+    string path = path_to_db(path_to_repo, ipns);
 
     ifstream file(path);
 
@@ -33,9 +38,9 @@ static Json load_db(const string& path_to_repo)
     return db;
 }
 
-static void save_db(const Json& db, const string& path_to_repo)
+static void save_db(const Json& db, const string& path_to_repo, const string& ipns)
 {
-    string path = path_to_repo + "/ipfs_cache_db.json";
+    string path = path_to_db(path_to_repo, ipns);
 
     ofstream file(path, std::ofstream::trunc);
 
@@ -55,7 +60,7 @@ ClientDb::ClientDb(Backend& backend, string path_to_repo, string ipns)
     , _was_destroyed(make_shared<bool>(false))
     , _download_timer(_backend.get_io_service())
 {
-    _local_db = load_db(_path_to_repo);
+    _local_db = load_db(_path_to_repo, _ipns);
     auto d = _was_destroyed;
 
     asio::spawn(get_io_service(), [=](asio::yield_context yield) {
@@ -72,7 +77,7 @@ InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
     , _has_callbacks(_backend.get_io_service())
     , _was_destroyed(make_shared<bool>(false))
 {
-    _local_db = load_db(_path_to_repo);
+    _local_db = load_db(_path_to_repo, _ipns);
     auto d = _was_destroyed;
 
     asio::spawn(get_io_service(), [=](asio::yield_context yield) {
@@ -84,7 +89,6 @@ InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
 static
 void initialize_db(Json& json, const string& ipns)
 {
-    json["ipns"]  = ipns;
     json["sites"] = Json::object();
 }
 
@@ -108,7 +112,7 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
 
     // TODO: When the database get's big, this will become costly to do
     // on each update, thus we need to think of a smarter solution.
-    save_db(_local_db, _path_to_repo);
+    save_db(_local_db, _path_to_repo, _ipns);
 
     _upload_callbacks.push_back(move(cb));
     _has_callbacks.notify_one();
@@ -195,30 +199,13 @@ string ClientDb::query(string key, sys::error_code& ec)
 
 void ClientDb::merge(const Json& remote_db)
 {
-    auto r_ipns_i = remote_db.find("ipns");
-    auto l_ipns_i = _local_db.find("ipns");
-
-    if (l_ipns_i == _local_db.end() && r_ipns_i != remote_db.end()) {
-        _local_db["ipns"] = r_ipns_i.value();
-    }
-
     auto r_sites_i = remote_db.find("sites");
 
     if (r_sites_i == remote_db.end() || !r_sites_i->is_object()) {
         return;
     }
 
-    auto l_sites_i = _local_db.find("sites");
-
-    if (l_sites_i == _local_db.end() || !l_sites_i->is_object()) {
-        // XXX: Can these two lines be done in one command?
-        _local_db["sites"] = Json::object();
-        l_sites_i = _local_db.find("sites");
-    }
-
-    for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
-        (*l_sites_i)[it.key()] = it.value();
-    }
+    _local_db["sites"] = *r_sites_i;
 }
 
 Json ClientDb::download_database( const string& ipns
@@ -270,7 +257,7 @@ void ClientDb::continuously_download_db(asio::yield_context yield)
 
         // TODO: When the database get's big, this will become costly to do on
         // each download, thus we need to think of a smarter solution.
-        save_db(_local_db, _path_to_repo);
+        save_db(_local_db, _path_to_repo, _ipns);
 
         _download_timer.expires_from_now(chrono::seconds(5));
         _download_timer.async_wait(yield[ec]);
