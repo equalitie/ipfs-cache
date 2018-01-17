@@ -3,6 +3,7 @@
 #include "republisher.h"
 
 #include <boost/asio/io_service.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <ipfs_cache/error.h>
 
@@ -92,6 +93,12 @@ void initialize_db(Json& json, const string& ipns)
     json["sites"] = Json::object();
 }
 
+static
+string now_as_iso_string() {
+    auto entry_date = boost::posix_time::microsec_clock::universal_time();
+    return boost::posix_time::to_iso_extended_string(entry_date) + 'Z';
+}
+
 void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
@@ -104,7 +111,7 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
     if (!key.empty()) {
         try {
             _local_db["sites"][key] = {
-                { "date", "<dummy>" },
+                { "date", now_as_iso_string() },
                 { "link", value }
             };
         }

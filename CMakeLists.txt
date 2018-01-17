@@ -125,7 +125,7 @@ if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
 ################################################################################
 project(cache_client)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options coroutine system REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options date_time coroutine system REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
