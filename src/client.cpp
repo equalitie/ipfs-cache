@@ -12,7 +12,7 @@ namespace sys  = boost::system;
 
 Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
     : _backend(new Backend(ios, path_to_repo))
-    , _db(new Db(*_backend, true, path_to_repo, ipns))
+    , _db(new ClientDb(*_backend, path_to_repo, ipns))
 {
 }
 

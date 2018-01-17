@@ -14,7 +14,7 @@ namespace boost { namespace asio {
 namespace ipfs_cache {
 
 struct Backend;
-struct Db;
+struct ClientDb;
 using Json = nlohmann::json;
 
 class Client {
@@ -43,7 +43,7 @@ public:
 
 private:
     std::unique_ptr<Backend> _backend;
-    std::unique_ptr<Db> _db;
+    std::unique_ptr<ClientDb> _db;
 };
 
 } // ipfs_cache namespace

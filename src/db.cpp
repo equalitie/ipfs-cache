@@ -48,30 +48,34 @@ static void save_db(const Json& db, const string& path_to_repo)
     file.close();
 }
 
-Db::Db(Backend& backend, bool is_client, string path_to_repo, string ipns)
-    : _is_client(is_client)
-    , _path_to_repo(move(path_to_repo))
+ClientDb::ClientDb(Backend& backend, string path_to_repo, string ipns)
+    : _path_to_repo(move(path_to_repo))
     , _ipns(move(ipns))
     , _backend(backend)
-    , _republisher(new Republisher(_backend))
-    , _has_callbacks(_backend.get_io_service())
     , _was_destroyed(make_shared<bool>(false))
     , _download_timer(_backend.get_io_service())
 {
     _local_db = load_db(_path_to_repo);
-
-    auto& ios = get_io_service();
-
     auto d = _was_destroyed;
 
-    if (_is_client) {
-        asio::spawn(ios, [=](asio::yield_context yield) {
-                if (*d) return;
-                continuously_download_db(yield);
-            });
-    }
+    asio::spawn(get_io_service(), [=](asio::yield_context yield) {
+            if (*d) return;
+            continuously_download_db(yield);
+        });
+}
 
-    asio::spawn(ios, [=](asio::yield_context yield) {
+InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
+    : _path_to_repo(move(path_to_repo))
+    , _ipns(backend.ipns_id())
+    , _backend(backend)
+    , _republisher(new Republisher(_backend))
+    , _has_callbacks(_backend.get_io_service())
+    , _was_destroyed(make_shared<bool>(false))
+{
+    _local_db = load_db(_path_to_repo);
+    auto d = _was_destroyed;
+
+    asio::spawn(get_io_service(), [=](asio::yield_context yield) {
             if (*d) return;
             continuously_upload_db(yield);
         });
@@ -84,7 +88,7 @@ void initialize_db(Json& json, const string& ipns)
     json["sites"] = Json::object();
 }
 
-void Db::update(string key, string value, function<void(sys::error_code)> cb)
+void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
         initialize_db(_local_db, _ipns);
@@ -110,7 +114,7 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
     _has_callbacks.notify_one();
 }
 
-void Db::continuously_upload_db(asio::yield_context yield)
+void InjectorDb::continuously_upload_db(asio::yield_context yield)
 {
     auto wd = _was_destroyed;
 
@@ -145,9 +149,9 @@ void Db::continuously_upload_db(asio::yield_context yield)
     }
 }
 
-string Db::upload_database( const Json& json
-                          , sys::error_code& ec
-                          , asio::yield_context yield)
+string InjectorDb::upload_database( const Json& json
+                                  , sys::error_code& ec
+                                  , asio::yield_context yield)
 {
     auto d = _was_destroyed;
     auto dump = json.dump();
@@ -159,11 +163,11 @@ string Db::upload_database( const Json& json
     return db_ipfs_id;
 }
 
-string Db::query(string key, sys::error_code& ec)
+static string query_(string key, const Json& db, sys::error_code& ec)
 {
-    auto sites_i = _local_db.find("sites");
+    auto sites_i = db.find("sites");
 
-    if (sites_i == _local_db.end() || !sites_i->is_object()) {
+    if (sites_i == db.end() || !sites_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return "";
     }
@@ -179,7 +183,17 @@ string Db::query(string key, sys::error_code& ec)
     return *i;
 }
 
-void Db::merge(const Json& remote_db)
+string InjectorDb::query(string key, sys::error_code& ec)
+{
+    return query_(key, _local_db, ec);
+}
+
+string ClientDb::query(string key, sys::error_code& ec)
+{
+    return query_(key, _local_db, ec);
+}
+
+void ClientDb::merge(const Json& remote_db)
 {
     auto r_ipns_i = remote_db.find("ipns");
     auto l_ipns_i = _local_db.find("ipns");
@@ -203,18 +217,13 @@ void Db::merge(const Json& remote_db)
     }
 
     for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
-        if (!_is_client && l_sites_i->find(it.key()) != l_sites_i->end()) {
-            // If we're the injector and we already have the value
-            // then we likely have a more recent version.
-            continue;
-        }
         (*l_sites_i)[it.key()] = it.value();
     }
 }
 
-Json Db::download_database( const string& ipns
-                          , sys::error_code& ec
-                          , asio::yield_context yield) {
+Json ClientDb::download_database( const string& ipns
+                                , sys::error_code& ec
+                                , asio::yield_context yield) {
     auto d = _was_destroyed;
 
     auto ipfs_id = _backend.resolve(ipns, yield[ec]);
@@ -239,7 +248,7 @@ Json Db::download_database( const string& ipns
     }
 }
 
-void Db::continuously_download_db(asio::yield_context yield)
+void ClientDb::continuously_download_db(asio::yield_context yield)
 {
     auto d = _was_destroyed;
 
@@ -270,16 +279,24 @@ void Db::continuously_download_db(asio::yield_context yield)
     }
 }
 
-asio::io_service& Db::get_io_service() {
+asio::io_service& ClientDb::get_io_service() {
     return _backend.get_io_service();
 }
 
-const Json& Db::json_db() const
+asio::io_service& InjectorDb::get_io_service() {
+    return _backend.get_io_service();
+}
+
+const Json& ClientDb::json_db() const
 {
     return _local_db;
 }
 
-Db::~Db() {
+ClientDb::~ClientDb() {
+    *_was_destroyed = true;
+}
+
+InjectorDb::~InjectorDb() {
     *_was_destroyed = true;
 
     for (auto& cb : _upload_callbacks) {
