@@ -103,7 +103,10 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
     // the injector wants to upload a database with no sites.
     if (!key.empty()) {
         try {
-            _local_db["sites"][key] = value;
+            _local_db["sites"][key] = {
+                { "date", "<dummy>" },
+                { "link", value }
+            };
         }
         catch(...) {
             assert(0);
@@ -176,15 +179,23 @@ static string query_(string key, const Json& db, sys::error_code& ec)
         return "";
     }
 
-    auto i = sites_i->find(key);
+    auto item_i = sites_i->find(key);
 
-    // We only ever store string values.
-    if (i == sites_i->end() || !i->is_string()) {
+    // We only ever store objects with "date" and "link" members.
+    if (item_i == sites_i->end() || !item_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return "";
     }
 
-    return *i;
+    auto link_i = item_i->find("link");
+
+    // We only ever store string values.
+    if (link_i == item_i->end() || !link_i->is_string()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return "";
+    }
+
+    return *link_i;
 }
 
 string InjectorDb::query(string key, sys::error_code& ec)
