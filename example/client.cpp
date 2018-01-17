@@ -62,8 +62,16 @@ int main(int argc, const char** argv)
         cout << "Fetching..." << endl;
 
         asio::spawn(ios, [&](asio::yield_context yield) {
-                string value = client.get_content(key, yield);
-                cout << "Value:" << value << endl;
+                boost::system::error_code ec;
+
+                ipfs_cache::Json value = client.get_content(key, yield[ec]);
+
+                if (ec) {
+                    cout << "Error: " << ec.message() << endl;
+                    return;
+                }
+
+                cout << "Value: " << value.dump() << endl;
             });
 
         ios.run();
