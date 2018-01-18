@@ -54,31 +54,26 @@ int main(int argc, const char** argv)
 
     asio::io_service ios;
 
-    try {
-        cout << "Starting event loop, press Ctrl-C to exit." << endl;
+    cout << "Starting event loop, press Ctrl-C to exit." << endl;
 
-        ipfs_cache::Client client(ios, ipns, repo);
+    asio::spawn(ios, [&](asio::yield_context yield) {
+            ipfs_cache::Client client(ios, ipns, repo);
 
-        cout << "Fetching..." << endl;
+            try {
+                cout << "Waiting for DB update..." << endl;
+                client.wait_for_db_update(yield);
 
-        asio::spawn(ios, [&](asio::yield_context yield) {
-                boost::system::error_code ec;
-
-                ipfs_cache::Json value = client.get_content(key, yield[ec]);
-
-                if (ec) {
-                    cout << "Error: " << ec.message() << endl;
-                    return;
-                }
+                cout << "Fetching..." << endl;
+                ipfs_cache::Json value = client.get_content(key, yield);
 
                 cout << "Value: " << value.dump() << endl;
-            });
+            }
+            catch (const exception& e) {
+                cerr << "Error: " << e.what() << endl;
+            }
+        });
 
-        ios.run();
-    }
-    catch (const exception& e) {
-        cerr << "Exception " << e.what() << endl;
-    }
+    ios.run();
 
     return 0;
 }

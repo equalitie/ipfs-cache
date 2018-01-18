@@ -35,6 +35,8 @@ public:
 
     Json get_content(std::string url, boost::asio::yield_context);
 
+    void wait_for_db_update(boost::asio::yield_context);
+
     const std::string& ipns() const;
     const std::string& ipfs() const;
     const Json& json_db() const;

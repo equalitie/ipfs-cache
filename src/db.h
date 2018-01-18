@@ -22,6 +22,8 @@ class Republisher;
 using Json = nlohmann::json;
 
 class ClientDb {
+    using OnDbUpdate = std::function<void(const sys::error_code&)>;
+
 public:
     ClientDb(Backend&, std::string path_to_repo, std::string ipns);
 
@@ -33,6 +35,8 @@ public:
     const std::string& ipns() const { return _ipns; }
     const std::string& ipfs() const { return _ipfs; }
 
+    void wait_for_db_update(boost::asio::yield_context);
+
     ~ClientDb();
 
 private:
@@ -40,6 +44,8 @@ private:
 
     Json download_database(const std::string& ipns, sys::error_code&, asio::yield_context);
     void continuously_download_db(asio::yield_context);
+
+    void flush_db_update_callbacks(const sys::error_code&);
 
 private:
     const std::string _path_to_repo;
@@ -49,6 +55,7 @@ private:
     Backend& _backend;
     std::shared_ptr<bool> _was_destroyed;
     asio::steady_timer _download_timer;
+    std::queue<OnDbUpdate> _on_db_update_callbacks;
 };
 
 class InjectorDb {

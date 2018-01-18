@@ -3,27 +3,17 @@
 #include <assert.h>
 #include <mutex>
 #include <experimental/tuple>
+#include <boost/intrusive/list.hpp>
 
 #include "backend.h"
 
 using namespace ipfs_cache;
 using namespace std;
+namespace intr = boost::intrusive;
 
 namespace {
     const uint32_t CID_SIZE = 46;
 }
-
-struct ipfs_cache::BackendImpl {
-    // This prevents callbacks from being called once Backend is destroyed.
-    bool was_destroyed;
-    asio::io_service& ios;
-    mutex destruct_mutex;
-
-    BackendImpl(asio::io_service& ios)
-        : was_destroyed(false)
-        , ios(ios)
-    {}
-};
 
 template<class F> struct Defer {
     F f;
@@ -34,11 +24,40 @@ template<class F> Defer<F> defer(F&& f) {
     return Defer<F>{forward<F>(f)};
 };
 
+struct HandleBase : public intr::list_base_hook
+                            <intr::link_mode<intr::auto_unlink>> {
+    virtual void cancel() = 0;
+    virtual ~HandleBase() { }
+};
+
+struct ipfs_cache::BackendImpl {
+    // This prevents callbacks from being called once Backend is destroyed.
+    bool was_destroyed;
+    asio::io_service& ios;
+    mutex destruct_mutex;
+    intr::list<HandleBase, intr::constant_time_size<false>> handles;
+
+    BackendImpl(asio::io_service& ios)
+        : was_destroyed(false)
+        , ios(ios)
+    {}
+};
+
 template<class... As>
-struct Handle {
+struct Handle : public HandleBase {
     shared_ptr<BackendImpl> impl;
     function<void(sys::error_code, As&&...)> cb;
+    asio::io_service::work work;
     tuple<sys::error_code, As...> args;
+
+    Handle( shared_ptr<BackendImpl> impl_
+          , function<void(sys::error_code, As&&...)> cb)
+        : impl(move(impl_))
+        , cb(move(cb))
+        , work(impl->ios)
+    {
+        impl->handles.push_back(*this);
+    }
 
     static void call(int err, void* arg, As... args) {
         auto self = reinterpret_cast<Handle*>(arg);
@@ -46,9 +65,14 @@ struct Handle {
 
         lock_guard<mutex> guard(self->impl->destruct_mutex);
 
-        if (self->impl->was_destroyed) return;
+        if (!self->cb) return; // Already cancelled.
 
-        auto ec = make_error_code(error::ipfs_error{err});
+        self->unlink();
+
+        auto ec = self->impl->was_destroyed
+                ? asio::error::operation_aborted
+                : make_error_code(error::ipfs_error{err});
+
         self->args = make_tuple(ec, move(args)...);
 
         ios.dispatch([self] {
@@ -64,6 +88,14 @@ struct Handle {
 
     static void call_data(int err, const char* data, size_t size, void* arg) {
         call(err, arg, string(data, data + size));
+    }
+
+    void cancel() override {
+        std::get<0>(args) = asio::error::operation_aborted;
+
+        impl->ios.post([cb = move(cb), as = move(args)] () mutable {
+                std::experimental::apply(cb, move(as));
+            });
     }
 };
 
@@ -128,5 +160,18 @@ Backend::~Backend()
 {
     lock_guard<mutex> guard(_impl->destruct_mutex);
     _impl->was_destroyed = true;
+
+    // Make sure all handlers get completed.
+    for (auto i = _impl->handles.begin(); i != _impl->handles.end();) {
+        auto j = std::next(i);
+
+        auto h = &(*i);
+        h->cancel();
+        h->unlink();
+        delete h;
+
+        i = j;
+    }
+
     go_ipfs_cache_stop();
 }

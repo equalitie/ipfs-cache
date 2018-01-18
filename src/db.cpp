@@ -255,6 +255,8 @@ void ClientDb::continuously_download_db(asio::yield_context yield)
 
         merge(db);
 
+        flush_db_update_callbacks(sys::error_code());
+
         // TODO: When the database get's big, this will become costly to do on
         // each download, thus we need to think of a smarter solution.
         save_db(_local_db, _path_to_repo, _ipns);
@@ -263,6 +265,30 @@ void ClientDb::continuously_download_db(asio::yield_context yield)
         _download_timer.async_wait(yield[ec]);
 
         if (*d) return;
+    }
+}
+
+void ClientDb::wait_for_db_update(asio::yield_context yield)
+{
+    using Handler = asio::handler_type<asio::yield_context,
+          void(sys::error_code)>::type;
+
+    Handler h(yield);
+    asio::async_result<Handler> result(h);
+    _on_db_update_callbacks.push([ h = move(h)
+                                 , w = asio::io_service::work(get_io_service())
+                                 ] (auto ec) mutable { h(ec); });
+    result.get();
+}
+
+void ClientDb::flush_db_update_callbacks(const sys::error_code& ec)
+{
+    auto& q = _on_db_update_callbacks;
+
+    while (!q.empty()) {
+        auto c = move(q.front());
+        q.pop();
+        get_io_service().post([c = move(c), ec] () mutable { c(ec); });
     }
 }
 
@@ -281,6 +307,7 @@ const Json& ClientDb::json_db() const
 
 ClientDb::~ClientDb() {
     *_was_destroyed = true;
+    flush_db_update_callbacks(asio::error::operation_aborted);
 }
 
 InjectorDb::~InjectorDb() {

@@ -61,6 +61,11 @@ Json Client::get_content(string url, asio::yield_context yield)
     return result.get();
 }
 
+void Client::wait_for_db_update(boost::asio::yield_context yield)
+{
+    _db->wait_for_db_update(yield);
+}
+
 const string& Client::ipns() const
 {
     return _db->ipns();
