@@ -23,9 +23,8 @@ void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
     sys::error_code ec;
 
     CacheEntry entry = _db->query(url, ec);
-    string ipfs_id = entry.link;
 
-    if (!ec && ipfs_id.empty()) {
+    if (!ec && entry.date.is_not_a_date_time()) {
         ec = error::key_not_found;
     }
 
@@ -33,7 +32,7 @@ void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
         return ios.post([cb = move(cb), ec] { cb(ec, Json()); });
     }
 
-    _backend->cat(ipfs_id, [cb = move(cb)] (sys::error_code ecc, string s) {
+    _backend->cat(entry.link, [cb = move(cb)] (sys::error_code ecc, string s) {
             if (ecc) {
                 return cb(ecc, move(s));
             }
