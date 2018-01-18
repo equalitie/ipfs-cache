@@ -3,6 +3,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <string>
 #include <queue>
 #include <list>
@@ -21,13 +22,20 @@ class Backend;
 class Republisher;
 using Json = nlohmann::json;
 
+struct CacheEntry {
+    // Entry time stamp, not a date/time for missing or invalid entries.
+    boost::posix_time::ptime date;
+    // Entry value, empty for missing or invalid entries.
+    std::string link;
+};
+
 class ClientDb {
     using OnDbUpdate = std::function<void(const sys::error_code&)>;
 
 public:
     ClientDb(Backend&, std::string path_to_repo, std::string ipns);
 
-    std::string query(std::string key, sys::error_code& ec);
+    CacheEntry query(std::string key, sys::error_code& ec);
 
     boost::asio::io_service& get_io_service();
 
@@ -65,7 +73,7 @@ public:
     void update( std::string key, std::string value
                , std::function<void(sys::error_code)>);
 
-    std::string query(std::string key, sys::error_code& ec);
+    CacheEntry query(std::string key, sys::error_code& ec);
 
     boost::asio::io_service& get_io_service();
 

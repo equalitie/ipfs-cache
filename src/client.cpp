@@ -22,7 +22,8 @@ void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
 
     sys::error_code ec;
 
-    string ipfs_id = _db->query(url, ec);
+    CacheEntry entry = _db->query(url, ec);
+    string ipfs_id = entry.link;
 
     if (!ec && ipfs_id.empty()) {
         ec = error::key_not_found;

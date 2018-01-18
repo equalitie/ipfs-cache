@@ -3,7 +3,6 @@
 #include "republisher.h"
 
 #include <boost/asio/io_service.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <ipfs_cache/error.h>
 
@@ -186,13 +185,15 @@ string InjectorDb::upload_database( const Json& json
     return db_ipfs_id;
 }
 
-static string query_(string key, const Json& db, sys::error_code& ec)
+static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 {
+    CacheEntry entry;  // default: not a date/time, empty string
+
     auto sites_i = db.find("sites");
 
     if (sites_i == db.end() || !sites_i->is_object()) {
         ec = make_error_code(error::key_not_found);
-        return "";
+        return entry;
     }
 
     auto item_i = sites_i->find(key);
@@ -200,14 +201,15 @@ static string query_(string key, const Json& db, sys::error_code& ec)
     // We only ever store objects with "date" and "link" members.
     if (item_i == sites_i->end() || !item_i->is_object()) {
         ec = make_error_code(error::key_not_found);
-        return "";
+        return entry;
     }
 
     auto date_i = item_i->find("date");
 
-    if (date_i == item_i->end() || !date_i->is_string() || ptime_from_string(*date_i).is_not_a_date_time()) {
+    boost::posix_time::ptime date;
+    if (date_i == item_i->end() || !date_i->is_string() || (date = ptime_from_string(*date_i)).is_not_a_date_time()) {
         ec = make_error_code(error::malformed_db_entry);
-        return "";
+        return entry;
     }
 
     auto link_i = item_i->find("link");
@@ -215,18 +217,20 @@ static string query_(string key, const Json& db, sys::error_code& ec)
     // We only ever store string values.
     if (link_i == item_i->end() || !link_i->is_string()) {
         ec = make_error_code(error::malformed_db_entry);
-        return "";
+        return entry;
     }
 
-    return *link_i;
+    entry.date = date;
+    entry.link = *link_i;
+    return entry;
 }
 
-string InjectorDb::query(string key, sys::error_code& ec)
+CacheEntry InjectorDb::query(string key, sys::error_code& ec)
 {
     return query_(key, _local_db, ec);
 }
 
-string ClientDb::query(string key, sys::error_code& ec)
+CacheEntry ClientDb::query(string key, sys::error_code& ec)
 {
     return query_(key, _local_db, ec);
 }
