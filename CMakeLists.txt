@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.5)
-set(GLOB BOOST_VERSION 1.55)
+# NOTE: from_iso_extended_string has been introduced in Boost 1.62
+set(BOOST_VERSION 1.62.0)
 include(ExternalProject)
 ################################################################################
 option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
