@@ -234,7 +234,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
     );
     // There should be at least one IPFS link.
     if (link_i == links_i->end()) {
-        ec = make_error_code(error::malformed_db_entry);
+        ec = make_error_code(error::missing_ipfs_link);
         return entry;
     }
     string link = *link_i;
