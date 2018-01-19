@@ -74,11 +74,11 @@ https://ipfs.io/ipns/<DATABASE IPNS>
 Which may look something like this:
 
 ```
-{"my_key":"<IPFS CONTENT ID>"}
+{"my_key": {"date": "<INSERTION DATE>", "links": ["ipfs:/ipfs/<IPFS CONTENT ID>"]}}
 ```
 
 Note that the _value_ is not stored in the database directly, instead, it can be found
-in the IPFS network under `<IPFS CONTENT ID>`. We can again look it up with our
+in the IPFS network under `/ipfs/<IPFS CONTENT ID>`. We can again look it up with our
 browser by following the link
 
 ```
