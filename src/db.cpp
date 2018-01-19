@@ -92,6 +92,21 @@ void initialize_db(Json& json, const string& ipns)
     json["sites"] = Json::object();
 }
 
+static
+string now_as_string() {
+    auto entry_date = boost::posix_time::microsec_clock::universal_time();
+    return boost::posix_time::to_iso_extended_string(entry_date) + 'Z';
+}
+
+static
+boost::posix_time::ptime ptime_from_string(const string& s) {
+    try {
+        return boost::posix_time::from_iso_extended_string(s);
+    } catch(...) {
+        return boost::posix_time::ptime(boost::posix_time::not_a_date_time);
+    }
+}
+
 void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
@@ -103,7 +118,10 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
     // the injector wants to upload a database with no sites.
     if (!key.empty()) {
         try {
-            _local_db["sites"][key] = value;
+            _local_db["sites"][key] = {
+                { "date", now_as_string() },
+                { "link", value }
+            };
         }
         catch(...) {
             assert(0);
@@ -167,32 +185,52 @@ string InjectorDb::upload_database( const Json& json
     return db_ipfs_id;
 }
 
-static string query_(string key, const Json& db, sys::error_code& ec)
+static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 {
+    CacheEntry entry;  // default: not a date/time, empty string
+
     auto sites_i = db.find("sites");
 
     if (sites_i == db.end() || !sites_i->is_object()) {
         ec = make_error_code(error::key_not_found);
-        return "";
+        return entry;
     }
 
-    auto i = sites_i->find(key);
+    auto item_i = sites_i->find(key);
+
+    // We only ever store objects with "date" and "link" members.
+    if (item_i == sites_i->end() || !item_i->is_object()) {
+        ec = make_error_code(error::key_not_found);
+        return entry;
+    }
+
+    auto date_i = item_i->find("date");
+
+    boost::posix_time::ptime date;
+    if (date_i == item_i->end() || !date_i->is_string() || (date = ptime_from_string(*date_i)).is_not_a_date_time()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return entry;
+    }
+
+    auto link_i = item_i->find("link");
 
     // We only ever store string values.
-    if (i == sites_i->end() || !i->is_string()) {
-        ec = make_error_code(error::key_not_found);
-        return "";
+    if (link_i == item_i->end() || !link_i->is_string()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return entry;
     }
 
-    return *i;
+    entry.date = date;
+    entry.link = *link_i;
+    return entry;
 }
 
-string InjectorDb::query(string key, sys::error_code& ec)
+CacheEntry InjectorDb::query(string key, sys::error_code& ec)
 {
     return query_(key, _local_db, ec);
 }
 
-string ClientDb::query(string key, sys::error_code& ec)
+CacheEntry ClientDb::query(string key, sys::error_code& ec)
 {
     return query_(key, _local_db, ec);
 }
