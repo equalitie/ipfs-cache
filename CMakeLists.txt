@@ -5,6 +5,9 @@ include(ExternalProject)
 ################################################################################
 option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
 
+add_definitions(-DBOOST_COROUTINE_NO_DEPRECATION_WARNING
+                -DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
+
 ################################################################################
 # TODO(peterj): Address sanitizer seems to cause segmentation faults on exit
 #               from main(?).
