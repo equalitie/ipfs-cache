@@ -25,8 +25,8 @@ using Json = nlohmann::json;
 struct CacheEntry {
     // Entry time stamp, not a date/time for missing or invalid entries.
     boost::posix_time::ptime date;
-    // Entry value.
-    std::string link;
+    // Entry value (IPFS content hash).
+    std::string content_hash;
 };
 
 class ClientDb {

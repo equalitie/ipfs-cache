@@ -32,7 +32,7 @@ void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
         return ios.post([cb = move(cb), ec] { cb(ec, Json()); });
     }
 
-    _backend->cat(entry.link, [cb = move(cb)] (sys::error_code ecc, string s) {
+    _backend->cat(entry.content_hash, [cb = move(cb)] (sys::error_code ecc, string s) {
             if (ecc) {
                 return cb(ecc, move(s));
             }

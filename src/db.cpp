@@ -221,7 +221,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
     }
 
     entry.date = date;
-    entry.link = *link_i;
+    entry.content_hash = *link_i;
     return entry;
 }
 
