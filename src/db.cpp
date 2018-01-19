@@ -107,7 +107,7 @@ boost::posix_time::ptime ptime_from_string(const string& s) {
     }
 }
 
-void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
+void InjectorDb::update(string key, string content_hash, function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
         initialize_db(_local_db, _ipns);
@@ -120,7 +120,7 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
         try {
             _local_db["sites"][key] = {
                 { "date", now_as_string() },
-                { "link", value }
+                { "link", content_hash }
             };
         }
         catch(...) {

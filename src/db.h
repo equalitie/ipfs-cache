@@ -70,7 +70,7 @@ class InjectorDb {
 public:
     InjectorDb(Backend&, std::string path_to_repo);
 
-    void update( std::string key, std::string value
+    void update( std::string key, std::string content_hash
                , std::function<void(sys::error_code)>);
 
     CacheEntry query(std::string key, sys::error_code& ec);
