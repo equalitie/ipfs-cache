@@ -25,8 +25,8 @@ using Json = nlohmann::json;
 struct CacheEntry {
     // Entry time stamp, not a date/time for missing or invalid entries.
     boost::posix_time::ptime date;
-    // Entry value.
-    std::string link;
+    // Entry value (IPFS content hash).
+    std::string content_hash;
 };
 
 class ClientDb {
@@ -70,7 +70,7 @@ class InjectorDb {
 public:
     InjectorDb(Backend&, std::string path_to_repo);
 
-    void update( std::string key, std::string value
+    void update( std::string key, std::string content_hash
                , std::function<void(sys::error_code)>);
 
     CacheEntry query(std::string key, sys::error_code& ec);

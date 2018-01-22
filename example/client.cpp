@@ -64,9 +64,10 @@ int main(int argc, const char** argv)
                 client.wait_for_db_update(yield);
 
                 cout << "Fetching..." << endl;
-                ipfs_cache::Json value = client.get_content(key, yield);
+                ipfs_cache::CachedContent value = client.get_content(key, yield);
 
-                cout << "Value: " << value.dump() << endl;
+                cout << "Date: " << value.date << endl
+                     << "Value: " << value.data.dump() << endl;
             }
             catch (const exception& e) {
                 cerr << "Error: " << e.what() << endl;

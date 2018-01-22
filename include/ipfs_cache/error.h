@@ -20,6 +20,7 @@ namespace ipfs_cache { namespace error {
         invalid_db_format,
         error_parsing_json,
         malformed_db_entry,
+        missing_ipfs_link,
     };
     
     struct ipfs_category : public boost::system::error_category
@@ -70,6 +71,8 @@ namespace ipfs_cache { namespace error {
                     return "error parsing json";
                 case error::malformed_db_entry:
                     return "malformed database entry";
+                case error::missing_ipfs_link:
+                    return "missing IPFS link to content";
                 default:
                     return "unknown ipfs_cache error";
             }

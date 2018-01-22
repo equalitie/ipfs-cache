@@ -6,6 +6,7 @@
 
 #include <ipfs_cache/error.h>
 
+#include <algorithm>
 #include <fstream>
 
 using namespace std;
@@ -107,7 +108,9 @@ boost::posix_time::ptime ptime_from_string(const string& s) {
     }
 }
 
-void InjectorDb::update(string key, string value, function<void(sys::error_code)> cb)
+const string ipfs_uri_prefix = "ipfs:/ipfs/";
+
+void InjectorDb::update(string key, string content_hash, function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
         initialize_db(_local_db, _ipns);
@@ -120,7 +123,7 @@ void InjectorDb::update(string key, string value, function<void(sys::error_code)
         try {
             _local_db["sites"][key] = {
                 { "date", now_as_string() },
-                { "link", value }
+                { "links", { ipfs_uri_prefix + content_hash } }
             };
         }
         catch(...) {
@@ -198,7 +201,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 
     auto item_i = sites_i->find(key);
 
-    // We only ever store objects with "date" and "link" members.
+    // We only ever store objects with "date" and "links" members.
     if (item_i == sites_i->end() || !item_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return entry;
@@ -206,22 +209,38 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 
     auto date_i = item_i->find("date");
 
+    // Get and parse the date string.
     boost::posix_time::ptime date;
     if (date_i == item_i->end() || !date_i->is_string() || (date = ptime_from_string(*date_i)).is_not_a_date_time()) {
         ec = make_error_code(error::malformed_db_entry);
         return entry;
     }
 
-    auto link_i = item_i->find("link");
+    auto links_i = item_i->find("links");
 
-    // We only ever store string values.
-    if (link_i == item_i->end() || !link_i->is_string()) {
+    // An array of strings (link URIs) is expected here.
+    if (links_i == item_i->end() || !links_i->is_array()) {
         ec = make_error_code(error::malformed_db_entry);
         return entry;
     }
 
+    // Look for the first item with the IPFS URI prefix.
+    auto link_i = find_if(links_i->begin(), links_i->end(), [](auto item) -> bool {
+            if (!item.is_string())
+                return false;
+            string link = item;
+            return link.find(ipfs_uri_prefix) == 0;
+        }
+    );
+    // There should be at least one IPFS link.
+    if (link_i == links_i->end()) {
+        ec = make_error_code(error::missing_ipfs_link);
+        return entry;
+    }
+    string link = *link_i;
+
     entry.date = date;
-    entry.link = *link_i;
+    entry.content_hash = link.substr(ipfs_uri_prefix.size());  // drop prefix, keep hash
     return entry;
 }
 
