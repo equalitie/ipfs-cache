@@ -66,7 +66,7 @@ int main(int argc, const char** argv)
                 cout << "Fetching..." << endl;
                 ipfs_cache::CachedContent value = client.get_content(key, yield);
 
-                cout << "Date: " << value.date << endl
+                cout << "Time stamp: " << value.ts << endl
                      << "Value: " << value.data.dump() << endl;
             }
             catch (const exception& e) {
