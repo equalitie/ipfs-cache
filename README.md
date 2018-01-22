@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/equalitie/ipfs-cache/tree/master.svg?style=shield)](https://circleci.com/gh/equalitie/ipfs-cache/tree/master)
+
 # IPFS Cache
 
 A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
