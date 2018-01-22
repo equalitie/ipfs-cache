@@ -95,8 +95,8 @@ void initialize_db(Json& json, const string& ipns)
 
 static
 string now_as_string() {
-    auto entry_date = boost::posix_time::microsec_clock::universal_time();
-    return boost::posix_time::to_iso_extended_string(entry_date) + 'Z';
+    auto entry_ts = boost::posix_time::microsec_clock::universal_time();
+    return boost::posix_time::to_iso_extended_string(entry_ts) + 'Z';
 }
 
 static
@@ -122,7 +122,7 @@ void InjectorDb::update(string key, string content_hash, function<void(sys::erro
     if (!key.empty()) {
         try {
             _local_db["sites"][key] = {
-                { "date", now_as_string() },
+                { "ts", now_as_string() },
                 { "links", { ipfs_uri_prefix + content_hash } }
             };
         }
@@ -201,17 +201,17 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 
     auto item_i = sites_i->find(key);
 
-    // We only ever store objects with "date" and "links" members.
+    // We only ever store objects with "ts" and "links" members.
     if (item_i == sites_i->end() || !item_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return entry;
     }
 
-    auto date_i = item_i->find("date");
+    auto ts_i = item_i->find("ts");
 
     // Get and parse the date string.
-    boost::posix_time::ptime date;
-    if (date_i == item_i->end() || !date_i->is_string() || (date = ptime_from_string(*date_i)).is_not_a_date_time()) {
+    boost::posix_time::ptime ts;
+    if (ts_i == item_i->end() || !ts_i->is_string() || (ts = ptime_from_string(*ts_i)).is_not_a_date_time()) {
         ec = make_error_code(error::malformed_db_entry);
         return entry;
     }
@@ -239,7 +239,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
     }
     string link = *link_i;
 
-    entry.date = date;
+    entry.ts = ts;
     entry.content_hash = link.substr(ipfs_uri_prefix.size());  // drop prefix, keep hash
     return entry;
 }

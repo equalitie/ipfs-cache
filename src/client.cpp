@@ -24,7 +24,7 @@ void Client::get_content(string url, function<void(sys::error_code, CachedConten
 
     CacheEntry entry = _db->query(url, ec);
 
-    if (!ec && entry.date.is_not_a_date_time()) {
+    if (!ec && entry.ts.is_not_a_date_time()) {
         ec = error::key_not_found;
     }
 
@@ -32,13 +32,13 @@ void Client::get_content(string url, function<void(sys::error_code, CachedConten
         return ios.post([cb = move(cb), ec] { cb(ec, CachedContent()); });
     }
 
-    _backend->cat(entry.content_hash, [cb = move(cb), date = entry.date] (sys::error_code ecc, string s) {
+    _backend->cat(entry.content_hash, [cb = move(cb), ts = entry.ts] (sys::error_code ecc, string s) {
             if (ecc) {
                 return cb(ecc, CachedContent());
             }
 
             try {
-                CachedContent cont({date, Json::parse(s)});
+                CachedContent cont({ts, Json::parse(s)});
                 cb(ecc, move(cont));
             }
             catch (...) {
