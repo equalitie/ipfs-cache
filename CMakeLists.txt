@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5)
 # NOTE: from_iso_extended_string has been introduced in Boost 1.62
-set(BOOST_VERSION 1.62.0)
+set(BOOST_VERSION 1.65.1)
 include(ExternalProject)
 ################################################################################
 option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
@@ -78,7 +78,7 @@ externalproject_add(ipfs
 ################################################################################
 project(ipfs-cache)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS REQUIRED)
+find_package(Boost ${BOOST_VERSION} EXACT REQUIRED COMPONENTS)
 find_package(Threads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
@@ -129,7 +129,7 @@ if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
 ################################################################################
 project(cache_client)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options date_time coroutine system REQUIRED)
+find_package(Boost ${BOOST_VERSION} EXACT REQUIRED COMPONENTS program_options date_time coroutine system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -149,7 +149,7 @@ target_link_libraries(cache_client
 ################################################################################
 project(cache_injector)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS program_options date_time coroutine system REQUIRED)
+find_package(Boost ${BOOST_VERSION} EXACT REQUIRED COMPONENTS program_options date_time coroutine system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
