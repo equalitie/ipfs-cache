@@ -16,7 +16,7 @@ Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
 {
 }
 
-void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
+void Client::get_content(string url, function<void(sys::error_code, CachedContent)> cb)
 {
     auto& ios = _backend->get_io_service();
 
@@ -29,29 +29,29 @@ void Client::get_content(string url, function<void(sys::error_code, Json)> cb)
     }
 
     if (ec) {
-        return ios.post([cb = move(cb), ec] { cb(ec, Json()); });
+        return ios.post([cb = move(cb), ec] { cb(ec, CachedContent()); });
     }
 
-    _backend->cat(entry.content_hash, [cb = move(cb)] (sys::error_code ecc, string s) {
+    _backend->cat(entry.content_hash, [cb = move(cb), date = entry.date] (sys::error_code ecc, string s) {
             if (ecc) {
-                return cb(ecc, move(s));
+                return cb(ecc, CachedContent());
             }
 
             try {
-                auto json = Json::parse(s);
-                cb(ecc, move(json));
+                CachedContent cont({date, Json::parse(s)});
+                cb(ecc, move(cont));
             }
             catch (...) {
-                cb(make_error_code(error::error_parsing_json), Json());
+                cb(make_error_code(error::error_parsing_json), CachedContent());
             }
         });
 }
 
-Json Client::get_content(string url, asio::yield_context yield)
+CachedContent Client::get_content(string url, asio::yield_context yield)
 {
     using handler_type = typename asio::handler_type
                            < asio::yield_context
-                           , void(sys::error_code, Json)>::type;
+                           , void(sys::error_code, CachedContent)>::type;
 
     handler_type handler(yield);
     asio::async_result<handler_type> result(handler);
