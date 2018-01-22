@@ -18,7 +18,6 @@ namespace ipfs_cache { namespace error {
         key_not_found = 1, // Start with > 0, because 0 means success.
         db_download_failed,
         invalid_db_format,
-        error_parsing_json,
         malformed_db_entry,
         missing_ipfs_link,
     };
@@ -67,8 +66,6 @@ namespace ipfs_cache { namespace error {
                     return "database download failed";
                 case error::invalid_db_format:
                     return "invalid database format";
-                case error::error_parsing_json:
-                    return "error parsing json";
                 case error::malformed_db_entry:
                     return "malformed database entry";
                 case error::missing_ipfs_link:

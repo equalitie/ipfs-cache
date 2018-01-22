@@ -22,7 +22,7 @@ struct CachedContent {
     // Data time stamp, not a date/time on errors.
     boost::posix_time::ptime ts;
     // Cached data.
-    Json data;
+    std::string data;
 };
 
 class Client {

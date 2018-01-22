@@ -67,7 +67,7 @@ int main(int argc, const char** argv)
                 ipfs_cache::CachedContent value = client.get_content(key, yield);
 
                 cout << "Time stamp: " << value.ts << endl
-                     << "Value: " << value.data.dump() << endl;
+                     << "Value: " << value.data << endl;
             }
             catch (const exception& e) {
                 cerr << "Error: " << e.what() << endl;

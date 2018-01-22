@@ -37,13 +37,8 @@ void Client::get_content(string url, function<void(sys::error_code, CachedConten
                 return cb(ecc, CachedContent());
             }
 
-            try {
-                CachedContent cont({ts, Json::parse(s)});
-                cb(ecc, move(cont));
-            }
-            catch (...) {
-                cb(make_error_code(error::error_parsing_json), CachedContent());
-            }
+            CachedContent cont({ts, s});
+            cb(ecc, move(cont));
         });
 }
 
