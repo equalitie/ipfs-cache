@@ -33,7 +33,7 @@ void Injector::insert_content_from_queue()
     auto e = move(_insert_queue.front());
     _insert_queue.pop();
 
-    _backend->add( e.value.dump()
+    _backend->add( e.value
                  , [this, key = move(e.key), cb = move(e.on_insert)]
                    (sys::error_code eca, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
@@ -53,7 +53,7 @@ void Injector::insert_content_from_queue()
                    });
 }
 
-void Injector::insert_content(string key, const Json& value, function<void(sys::error_code, string)> cb)
+void Injector::insert_content(string key, const string& value, function<void(sys::error_code, string)> cb)
 {
     _insert_queue.push(InsertEntry{move(key), move(value), move(cb)});
 
@@ -65,9 +65,8 @@ void Injector::insert_content(string key, const Json& value, function<void(sys::
     insert_content_from_queue();
 }
 
-string Injector::insert_content(string key, const Json& value, asio::yield_context yield)
+string Injector::insert_content(string key, const string& value, asio::yield_context yield)
 {
-    Json json_test = 1;
     using handler_type = typename asio::handler_type
                            < asio::yield_context
                            , void(sys::error_code, string)>::type;
