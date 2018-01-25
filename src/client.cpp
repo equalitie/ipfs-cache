@@ -76,4 +76,16 @@ const Json& Client::json_db() const
     return _db->json_db();
 }
 
+Client::Client(Client&& other)
+    : _backend(move(other._backend))
+    , _db(move(other._db))
+{}
+
+Client& Client::operator=(Client&& other)
+{
+    _backend = move(other._backend);
+    _db = move(other._db);
+    return *this;
+}
+
 Client::~Client() {}

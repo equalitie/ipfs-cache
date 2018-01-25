@@ -32,6 +32,9 @@ public:
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;
 
+    Client(Client&&);
+    Client& operator=(Client&&);
+
     // Find the content previously stored by the injector under `url`.
     // The content is returned in the parameter of the callback function.
     //
