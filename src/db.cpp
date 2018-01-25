@@ -123,7 +123,8 @@ void InjectorDb::update(string key, string content_hash, function<void(sys::erro
         try {
             _local_db["sites"][key] = {
                 { "ts", now_as_string() },
-                { "links", { ipfs_uri_prefix + content_hash } }
+                // Point an IPFS URI to the actual data.
+                { "data", { ipfs_uri_prefix + content_hash } }
             };
         }
         catch(...) {
@@ -201,7 +202,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 
     auto item_i = sites_i->find(key);
 
-    // We only ever store objects with "ts" and "links" members.
+    // We only ever store objects with "ts" and "data" members.
     if (item_i == sites_i->end() || !item_i->is_object()) {
         ec = make_error_code(error::key_not_found);
         return entry;
@@ -216,16 +217,16 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
         return entry;
     }
 
-    auto links_i = item_i->find("links");
+    auto data_i = item_i->find("data");
 
     // An array of strings (link URIs) is expected here.
-    if (links_i == item_i->end() || !links_i->is_array()) {
+    if (data_i == item_i->end() || !data_i->is_array()) {
         ec = make_error_code(error::malformed_db_entry);
         return entry;
     }
 
     // Look for the first item with the IPFS URI prefix.
-    auto link_i = find_if(links_i->begin(), links_i->end(), [](auto item) -> bool {
+    auto link_i = find_if(data_i->begin(), data_i->end(), [](auto item) -> bool {
             if (!item.is_string())
                 return false;
             string link = item;
@@ -233,7 +234,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
         }
     );
     // There should be at least one IPFS link.
-    if (link_i == links_i->end()) {
+    if (link_i == data_i->end()) {
         ec = make_error_code(error::missing_ipfs_link);
         return entry;
     }
