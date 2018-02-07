@@ -16,7 +16,7 @@ namespace sys  = boost::system;
 
 Injector::Injector(asio::io_service& ios, string path_to_repo)
     : _backend(new Backend(ios, path_to_repo))
-    , _db(new Db(*_backend, false, path_to_repo, _backend->ipns_id()))
+    , _db(new InjectorDb(*_backend, path_to_repo))
 {
     _db->update("", "", [] (sys::error_code) {});
 }

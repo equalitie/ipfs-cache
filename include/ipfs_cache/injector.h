@@ -13,7 +13,7 @@ namespace boost { namespace asio {
 namespace ipfs_cache {
 
 struct Backend;
-struct Db;
+struct InjectorDb;
 
 class Injector {
 public:
@@ -58,7 +58,7 @@ private:
 
 private:
     std::unique_ptr<Backend> _backend;
-    std::unique_ptr<Db> _db;
+    std::unique_ptr<InjectorDb> _db;
     std::queue<InsertEntry> _insert_queue;
     const unsigned int _concurrency = 8;
     unsigned int _job_count = 0;

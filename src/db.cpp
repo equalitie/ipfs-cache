@@ -4,21 +4,23 @@
 
 #include <boost/asio/io_service.hpp>
 
-#include <ipfs_cache/timer.h>
 #include <ipfs_cache/error.h>
 
+#include <algorithm>
 #include <fstream>
 
 using namespace std;
 using namespace ipfs_cache;
 
-namespace asio = boost::asio;
-namespace sys  = boost::system;
+static string path_to_db(const string& path_to_repo, const string& ipns)
+{
+    return path_to_repo + "/ipfs_cache_db." + ipns + ".json";
+}
 
-static Json load_db(const string& path_to_repo)
+static Json load_db(const string& path_to_repo, const string& ipns)
 {
     Json db;
-    string path = path_to_repo + "/ipfs_cache_db.json";
+    string path = path_to_db(path_to_repo, ipns);
 
     ifstream file(path);
 
@@ -37,9 +39,9 @@ static Json load_db(const string& path_to_repo)
     return db;
 }
 
-static void save_db(const Json& db, const string& path_to_repo)
+static void save_db(const Json& db, const string& path_to_repo, const string& ipns)
 {
-    string path = path_to_repo + "/ipfs_cache_db.json";
+    string path = path_to_db(path_to_repo, ipns);
 
     ofstream file(path, std::ofstream::trunc);
 
@@ -52,39 +54,78 @@ static void save_db(const Json& db, const string& path_to_repo)
     file.close();
 }
 
-Db::Db(Backend& backend, bool is_client, string path_to_repo, string ipns)
-    : _is_client(is_client)
-    , _path_to_repo(move(path_to_repo))
+ClientDb::ClientDb(Backend& backend, string path_to_repo, string ipns)
+    : _path_to_repo(move(path_to_repo))
     , _ipns(move(ipns))
     , _backend(backend)
-    , _republisher(new Republisher(_backend))
     , _was_destroyed(make_shared<bool>(false))
-    , _download_timer(make_unique<Timer>(_backend.get_io_service()))
+    , _download_timer(_backend.get_io_service())
 {
-    _json = load_db(_path_to_repo);
+    _local_db = load_db(_path_to_repo, _ipns);
+    auto d = _was_destroyed;
 
-    if (_is_client)
-        start_db_download();
+    asio::spawn(get_io_service(), [=](asio::yield_context yield) {
+            if (*d) return;
+            continuously_download_db(yield);
+        });
 }
 
-void Db::initialize(Json& json)
+InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
+    : _path_to_repo(move(path_to_repo))
+    , _ipns(backend.ipns_id())
+    , _backend(backend)
+    , _republisher(new Republisher(_backend))
+    , _has_callbacks(_backend.get_io_service())
+    , _was_destroyed(make_shared<bool>(false))
 {
-    json["ipns"] = _ipns;
+    _local_db = load_db(_path_to_repo, _ipns);
+    auto d = _was_destroyed;
+
+    asio::spawn(get_io_service(), [=](asio::yield_context yield) {
+            if (*d) return;
+            continuously_upload_db(yield);
+        });
+}
+
+static
+void initialize_db(Json& json, const string& ipns)
+{
     json["sites"] = Json::object();
 }
 
-void Db::update(string key, string value, function<void(sys::error_code)> cb)
+static
+string now_as_string() {
+    auto entry_ts = boost::posix_time::microsec_clock::universal_time();
+    return boost::posix_time::to_iso_extended_string(entry_ts) + 'Z';
+}
+
+static
+boost::posix_time::ptime ptime_from_string(const string& s) {
+    try {
+        return boost::posix_time::from_iso_extended_string(s);
+    } catch(...) {
+        return boost::posix_time::ptime(boost::posix_time::not_a_date_time);
+    }
+}
+
+const string ipfs_uri_prefix = "ipfs:/ipfs/";
+
+void InjectorDb::update(string key, string content_hash, function<void(sys::error_code)> cb)
 {
-    if (_json == Json()) {
-        initialize(_json);
+    if (_local_db == Json()) {
+        initialize_db(_local_db, _ipns);
     }
 
-    // An empty key will not add anything into the json structure but 
+    // An empty key will not add anything into the json structure but
     // will still force the updating loop to start. This is useful when
     // the injector wants to upload a database with no sites.
     if (!key.empty()) {
         try {
-            _json["sites"][key] = value;
+            _local_db["sites"][key] = {
+                { "ts", now_as_string() },
+                // Point an IPFS URI to the actual data.
+                { "data", { ipfs_uri_prefix + content_hash } }
+            };
         }
         catch(...) {
             assert(0);
@@ -93,174 +134,246 @@ void Db::update(string key, string value, function<void(sys::error_code)> cb)
 
     // TODO: When the database get's big, this will become costly to do
     // on each update, thus we need to think of a smarter solution.
-    save_db(_json, _path_to_repo);
+    save_db(_local_db, _path_to_repo, _ipns);
 
     _upload_callbacks.push_back(move(cb));
-
-    start_updating();
+    _has_callbacks.notify_one();
 }
 
-void Db::start_updating()
+void InjectorDb::continuously_upload_db(asio::yield_context yield)
 {
-    // Not having upload callbacks means we have nothing to update.
-    if (_upload_callbacks.empty()) return;
+    auto wd = _was_destroyed;
 
-    if (_is_uploading) return;
-    _is_uploading = true;
+    sys::error_code ec;
 
-    auto last_i = --_upload_callbacks.end();
+    while(true)
+    {
+        if (_upload_callbacks.empty()) {
+            _has_callbacks.wait(yield[ec]);
+            if (*wd || ec) return;
+        }
 
-    upload_database(_json, [this, last_i] (sys::error_code ec) {
-        _is_uploading = false;
+        assert(!_upload_callbacks.empty());
+
+        auto last_i = --_upload_callbacks.end();
+
+        sys::error_code ec;
+        upload_database(_local_db, ec, yield);
+
+        if (*wd || ec) return;
 
         auto& cbs = _upload_callbacks;
-        auto  destroyed = _was_destroyed;
 
         while (!cbs.empty()) {
             bool is_last = cbs.begin() == last_i;
             auto cb = move(cbs.front());
             cbs.erase(cbs.begin());
             cb(ec);
-            if (*destroyed) return;
+            if (*wd) return;
             if (is_last) break;
         }
-
-        start_updating();
-    });
+    }
 }
 
-template<class F>
-void Db::download_database(const string& ipns, F&& cb) {
-    auto d = _was_destroyed;
-
-    _backend.resolve(ipns, [this, cb = forward<F>(cb), d](sys::error_code ecr, string ipfs_id) {
-        if (*d) return;
-
-        if (ecr || ipfs_id.size() == 0) {
-            cb(ecr, ipfs_id, Json());
-            return;
-        }
-
-        _backend.cat(ipfs_id, [this, cb = move(cb), d, ipfs_id](sys::error_code ecc, string content) {
-            if (*d) return;
-
-            _ipfs = ipfs_id;
-
-            try {
-                cb(ecc, ipfs_id, Json::parse(content));
-            }
-            catch(...) {
-                cb(error::make_error_code(error::invalid_db_format), ipfs_id, Json());
-            }
-        });
-    });
-}
-
-template<class F>
-void Db::upload_database(const Json& json , F&& cb)
+string InjectorDb::upload_database( const Json& json
+                                  , sys::error_code& ec
+                                  , asio::yield_context yield)
 {
     auto d = _was_destroyed;
     auto dump = json.dump();
 
-    _backend.add((uint8_t*) dump.data(), dump.size(),
-        [ this, cb = forward<F>(cb), d] (sys::error_code ec, string db_ipfs_id) {
-            if (*d) return;
-            if (ec)
-                return cb(ec);
-            _republisher->publish(move(db_ipfs_id) , move(cb));
-        });
+    string db_ipfs_id = _backend.add((uint8_t*) dump.data(), dump.size(), yield[ec]);
+    if (*d || ec) return string();
+
+    _republisher->publish(move(db_ipfs_id), yield[ec]);
+    return db_ipfs_id;
 }
 
-void Db::query(string key, function<void(sys::error_code, string)> cb)
+static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 {
-    auto& ios = get_io_service();
+    CacheEntry entry;  // default: not a date/time, empty string
 
-    auto sites_i = _json.find("sites");
+    auto sites_i = db.find("sites");
 
-    if (sites_i == _json.end() || !sites_i->is_object()) {
-        return ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
+    if (sites_i == db.end() || !sites_i->is_object()) {
+        ec = make_error_code(error::key_not_found);
+        return entry;
     }
 
-    auto i = sites_i->find(key);
+    auto item_i = sites_i->find(key);
 
-    // We only ever store string values.
-    if (i == sites_i->end() || !i->is_string()) {
-        return ios.post(bind(move(cb), make_error_code(error::key_not_found), ""));
+    // We only ever store objects with "ts" and "data" members.
+    if (item_i == sites_i->end() || !item_i->is_object()) {
+        ec = make_error_code(error::key_not_found);
+        return entry;
     }
 
-    ios.post(bind(move(cb), sys::error_code(), *i));
+    auto ts_i = item_i->find("ts");
+
+    // Get and parse the date string.
+    boost::posix_time::ptime ts;
+    if (ts_i == item_i->end() || !ts_i->is_string() || (ts = ptime_from_string(*ts_i)).is_not_a_date_time()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return entry;
+    }
+
+    auto data_i = item_i->find("data");
+
+    // An array of strings (link URIs) is expected here.
+    if (data_i == item_i->end() || !data_i->is_array()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return entry;
+    }
+
+    // Look for the first item with the IPFS URI prefix.
+    auto link_i = find_if(data_i->begin(), data_i->end(), [](auto item) -> bool {
+            if (!item.is_string())
+                return false;
+            string link = item;
+            return link.find(ipfs_uri_prefix) == 0;
+        }
+    );
+    // There should be at least one IPFS link.
+    if (link_i == data_i->end()) {
+        ec = make_error_code(error::missing_ipfs_link);
+        return entry;
+    }
+    string link = *link_i;
+
+    entry.ts = ts;
+    entry.content_hash = link.substr(ipfs_uri_prefix.size());  // drop prefix, keep hash
+    return entry;
 }
 
-void Db::merge(const Json& remote_db)
+CacheEntry InjectorDb::query(string key, sys::error_code& ec)
 {
-    auto r_ipns_i = remote_db.find("ipns");
-    auto l_ipns_i = _json.find("ipns");
+    return query_(key, _local_db, ec);
+}
 
-    if (l_ipns_i == _json.end()) {
-        _json["ipns"] = r_ipns_i.value();
-    }
+CacheEntry ClientDb::query(string key, sys::error_code& ec)
+{
+    return query_(key, _local_db, ec);
+}
 
+void ClientDb::merge(const Json& remote_db)
+{
     auto r_sites_i = remote_db.find("sites");
 
     if (r_sites_i == remote_db.end() || !r_sites_i->is_object()) {
         return;
     }
 
-    auto l_sites_i = _json.find("sites");
+    _local_db["sites"] = *r_sites_i;
+}
 
-    if (l_sites_i == _json.end() || !l_sites_i->is_object()) {
-        // XXX: Can these two lines be done in one command?
-        _json["sites"] = Json::object();
-        l_sites_i = _json.find("sites");
+Json ClientDb::download_database( const string& ipns
+                                , sys::error_code& ec
+                                , asio::yield_context yield) {
+    auto d = _was_destroyed;
+
+    auto ipfs_id = _backend.resolve(ipns, yield[ec]);
+
+    if (*d) { ec = asio::error::operation_aborted; }
+    if (ec) return Json();
+
+    assert(ipfs_id.size());
+
+    string content = _backend.cat(ipfs_id, yield[ec]);
+
+    if (*d) { ec = asio::error::operation_aborted; }
+    if (ec) return Json();
+
+    _ipfs = ipfs_id;
+
+    try {
+        return Json::parse(content);
+    } catch(...) {
+        ec = error::make_error_code(error::invalid_db_format);
+        return Json();
     }
+}
 
-    for (auto it = r_sites_i->begin(); it != r_sites_i->end(); ++it) {
-        if (!_is_client && l_sites_i->find(it.key()) != l_sites_i->end()) {
-            // If we're the injector and we already have the value
-            // then we likely have a more recent version.
+void ClientDb::continuously_download_db(asio::yield_context yield)
+{
+    auto d = _was_destroyed;
+
+    while(true) {
+        sys::error_code ec;
+
+        Json db = download_database(_ipns, ec, yield);
+        if (*d) return;
+
+        if (ec) {
+            _download_timer.expires_from_now(chrono::seconds(5));
+            _download_timer.async_wait(yield[ec]);
+
+            if (*d) return;
             continue;
         }
-        (*l_sites_i)[it.key()] = it.value();
+
+        merge(db);
+
+        flush_db_update_callbacks(sys::error_code());
+
+        // TODO: When the database get's big, this will become costly to do on
+        // each download, thus we need to think of a smarter solution.
+        save_db(_local_db, _path_to_repo, _ipns);
+
+        _download_timer.expires_from_now(chrono::seconds(5));
+        _download_timer.async_wait(yield[ec]);
+
+        if (*d) return;
     }
 }
 
-void Db::start_db_download()
+void ClientDb::wait_for_db_update(asio::yield_context yield)
 {
-    download_database(_ipns
-                     , [this](sys::error_code ec, string ipfs_id, Json json) {
-        if (ec) {
-            cout << "DB download failed: " << ec.message() << endl;
+    using Handler = asio::handler_type<asio::yield_context,
+          void(sys::error_code)>::type;
 
-            _download_timer->start( chrono::seconds(5)
-                                  , [this] { start_db_download(); });
-            return;
-        }
-
-        on_db_download(move(json));
-    });
+    Handler h(yield);
+    asio::async_result<Handler> result(h);
+    _on_db_update_callbacks.push([ h = move(h)
+                                 , w = asio::io_service::work(get_io_service())
+                                 ] (auto ec) mutable { h(ec); });
+    result.get();
 }
 
-void Db::on_db_download(Json&& json)
+void ClientDb::flush_db_update_callbacks(const sys::error_code& ec)
 {
-    merge(json);
+    auto& q = _on_db_update_callbacks;
 
-    // TODO: When the database get's big, this will become costly to do
-    // on each download, thus we need to think of a smarter solution.
-    save_db(_json, _path_to_repo);
-
-    _download_timer->start( chrono::seconds(5)
-                          , [this] { start_db_download(); });
+    while (!q.empty()) {
+        auto c = move(q.front());
+        q.pop();
+        get_io_service().post([c = move(c), ec] () mutable { c(ec); });
+    }
 }
 
-asio::io_service& Db::get_io_service() {
+asio::io_service& ClientDb::get_io_service() {
     return _backend.get_io_service();
 }
 
-const Json& Db::json_db() const
-{
-    return _json;
+asio::io_service& InjectorDb::get_io_service() {
+    return _backend.get_io_service();
 }
 
-Db::~Db() {
+const Json& ClientDb::json_db() const
+{
+    return _local_db;
+}
+
+ClientDb::~ClientDb() {
     *_was_destroyed = true;
+    flush_db_update_callbacks(asio::error::operation_aborted);
+}
+
+InjectorDb::~InjectorDb() {
+    *_was_destroyed = true;
+
+    for (auto& cb : _upload_callbacks) {
+        get_io_service().post([cb = move(cb)] {
+                cb(asio::error::operation_aborted);
+            });
+    }
 }

@@ -12,42 +12,53 @@ namespace sys  = boost::system;
 
 Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
     : _backend(new Backend(ios, path_to_repo))
-    , _db(new Db(*_backend, true, path_to_repo, ipns))
+    , _db(new ClientDb(*_backend, path_to_repo, ipns))
 {
 }
 
-void Client::get_content(string url, function<void(sys::error_code, string)> cb)
+void Client::get_content(string url, function<void(sys::error_code, CachedContent)> cb)
 {
-    _db->query(url, [this, cb = move(cb)](sys::error_code ecq, string ipfs_id) {
-        if (ecq) {
-            return cb(ecq, move(ipfs_id));
-        }
+    auto& ios = _backend->get_io_service();
 
-        if (ipfs_id.empty()) {
-            return cb(error::key_not_found, move(ipfs_id));
-        }
+    sys::error_code ec;
 
-        _backend->cat(ipfs_id, [cb = move(cb)] (sys::error_code ecc, string s) {
-                cb(ecc, move(s));
-            });
-    }); 
+    CacheEntry entry = _db->query(url, ec);
+
+    if (!ec && entry.ts.is_not_a_date_time()) {
+        ec = error::key_not_found;
+    }
+
+    if (ec) {
+        return ios.post([cb = move(cb), ec] { cb(ec, CachedContent()); });
+    }
+
+    _backend->cat(entry.content_hash, [cb = move(cb), ts = entry.ts] (sys::error_code ecc, string s) {
+            if (ecc) {
+                return cb(ecc, CachedContent());
+            }
+
+            CachedContent cont({ts, s});
+            cb(ecc, move(cont));
+        });
 }
 
-string Client::get_content(string url, asio::yield_context yield)
+CachedContent Client::get_content(string url, asio::yield_context yield)
 {
     using handler_type = typename asio::handler_type
                            < asio::yield_context
-                           , void(sys::error_code, string)>::type;
+                           , void(sys::error_code, CachedContent)>::type;
 
     handler_type handler(yield);
     asio::async_result<handler_type> result(handler);
 
-    get_content(move(url),
-        [h = move(handler)] (sys::error_code ec, string v) mutable {
-            h(ec, move(v));
-        });
+    get_content(move(url), handler);
 
     return result.get();
+}
+
+void Client::wait_for_db_update(boost::asio::yield_context yield)
+{
+    _db->wait_for_db_update(yield);
 }
 
 const string& Client::ipns() const
@@ -63,6 +74,18 @@ const string& Client::ipfs() const
 const Json& Client::json_db() const
 {
     return _db->json_db();
+}
+
+Client::Client(Client&& other)
+    : _backend(move(other._backend))
+    , _db(move(other._db))
+{}
+
+Client& Client::operator=(Client&& other)
+{
+    _backend = move(other._backend);
+    _db = move(other._db);
+    return *this;
 }
 
 Client::~Client() {}

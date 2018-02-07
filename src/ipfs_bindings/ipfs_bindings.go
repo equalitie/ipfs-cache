@@ -13,6 +13,7 @@ import (
 	"unsafe"
 	"time"
 	"io"
+	"strings"
 	"io/ioutil"
 	core "github.com/ipfs/go-ipfs/core"
 	repo "github.com/ipfs/go-ipfs/repo"
@@ -72,12 +73,29 @@ func doesnt_exist_or_is_empty(path string) bool {
 	return false
 }
 
+// "/ip4/0.0.0.0/tcp/4001" -> "/ip4/0.0.0.0/tcp/0"
+// "/ip6/::/tcp/4001"      -> "/ip6/::/tcp/0"
+func setRandomPort(ep string) string {
+	parts := strings.Split(ep, "/")
+	l := len(parts);
+	if l == 0 { return ep }
+	parts[l-1] = "0"
+	return strings.Join(parts, "/")
+}
+
 func openOrCreateRepo(repoRoot string) (repo.Repo, error) {
 	if doesnt_exist_or_is_empty(repoRoot) {
 		conf, err := config.Init(os.Stdout, nBitsForKeypair)
 
 		if err != nil {
 			return nil, err
+		}
+
+		// Don't use hardcoded swarm ports (usually 4001), otherwise
+		// we wouldn't be able to run multiple IPFS instances on the
+		// same PC.
+		for i, addr := range conf.Addresses.Swarm {
+			conf.Addresses.Swarm[i] = setRandomPort(addr)
 		}
 
 		if err := fsrepo.Init(repoRoot, conf); err != nil {

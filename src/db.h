@@ -1,10 +1,16 @@
 #pragma once
 
 #include <boost/system/error_code.hpp>
+#include <boost/asio/spawn.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <string>
 #include <queue>
 #include <list>
 #include <json.hpp>
+
+#include "namespaces.h"
+#include "condition_variable.h"
 
 namespace boost { namespace asio {
     class io_service;
@@ -14,17 +20,22 @@ namespace ipfs_cache {
 
 class Backend;
 class Republisher;
-class Timer;
 using Json = nlohmann::json;
 
-class Db {
-public:
-    Db(Backend&, bool is_client, std::string path_to_repo, std::string ipns);
+struct CacheEntry {
+    // Entry time stamp, not a date/time for missing or invalid entries.
+    boost::posix_time::ptime ts;
+    // Entry value (IPFS content hash).
+    std::string content_hash;
+};
 
-    void update( std::string key, std::string value
-               , std::function<void(boost::system::error_code)>);
-    void query( std::string key
-              , std::function<void(boost::system::error_code, std::string)>);
+class ClientDb {
+    using OnDbUpdate = std::function<void(const sys::error_code&)>;
+
+public:
+    ClientDb(Backend&, std::string path_to_repo, std::string ipns);
+
+    CacheEntry query(std::string key, sys::error_code& ec);
 
     boost::asio::io_service& get_io_service();
 
@@ -32,31 +43,57 @@ public:
     const std::string& ipns() const { return _ipns; }
     const std::string& ipfs() const { return _ipfs; }
 
-    ~Db();
+    void wait_for_db_update(boost::asio::yield_context);
+
+    ~ClientDb();
 
 private:
-    void start_db_download();
-    void on_db_download(Json&& json);
-    void replay_queued_tasks();
     void merge(const Json&);
-    void start_updating();
-    void initialize(Json&);
 
-    template<class F> void download_database(const std::string&, F&&);
-    template<class F> void upload_database(const Json&, F&&);
+    Json download_database(const std::string& ipns, sys::error_code&, asio::yield_context);
+    void continuously_download_db(asio::yield_context);
+
+    void flush_db_update_callbacks(const sys::error_code&);
 
 private:
-    bool _is_uploading = false;
-    const bool _is_client;
     const std::string _path_to_repo;
-    Json _json;
+    Json _local_db;
     std::string _ipns;
     std::string _ipfs; // Last known
     Backend& _backend;
-    std::unique_ptr<Republisher> _republisher;
-    std::list<std::function<void(boost::system::error_code)>> _upload_callbacks;
     std::shared_ptr<bool> _was_destroyed;
-    std::unique_ptr<Timer> _download_timer;
+    asio::steady_timer _download_timer;
+    std::queue<OnDbUpdate> _on_db_update_callbacks;
+};
+
+class InjectorDb {
+public:
+    InjectorDb(Backend&, std::string path_to_repo);
+
+    void update( std::string key, std::string content_hash
+               , std::function<void(sys::error_code)>);
+
+    CacheEntry query(std::string key, sys::error_code& ec);
+
+    boost::asio::io_service& get_io_service();
+
+    const std::string& ipns() const { return _ipns; }
+
+    ~InjectorDb();
+
+private:
+    std::string upload_database(const Json&, sys::error_code&, asio::yield_context);
+    void continuously_upload_db(asio::yield_context);
+
+private:
+    const std::string _path_to_repo;
+    Json _local_db;
+    std::string _ipns;
+    Backend& _backend;
+    std::unique_ptr<Republisher> _republisher;
+    ConditionVariable _has_callbacks;
+    std::list<std::function<void(sys::error_code)>> _upload_callbacks;
+    std::shared_ptr<bool> _was_destroyed;
 };
 
 } // ipfs_cache namespace

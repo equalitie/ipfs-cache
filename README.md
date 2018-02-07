@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/equalitie/ipfs-cache/tree/master.svg?style=shield)](https://circleci.com/gh/equalitie/ipfs-cache/tree/master)
+
 # IPFS Cache
 
 A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
@@ -165,11 +167,11 @@ https://ipfs.io/ipns/<DATABASE IPNS>
 Which may look something like this:
 
 ```
-{"my_key":"<IPFS CONTENT ID>"}
+{"my_key": {"date": "<INSERTION DATE>", "data": ["ipfs:/ipfs/<IPFS CONTENT ID>"]}}
 ```
 
 Note that the _value_ is not stored in the database directly, instead, it can be found
-in the IPFS network under `<IPFS CONTENT ID>`. We can again look it up with our
+in the IPFS network under `/ipfs/<IPFS CONTENT ID>`. We can again look it up with our
 browser by following the link
 
 ```
@@ -182,11 +184,3 @@ run it as so:
 ```
 $ ./client --repo <PATH TO IPFS REPOSITORY> --ipns <DATABASE IPNS> --key my_key
 ```
-
-**NOTE**: If the _client_ and the _injector_ programs are being executed on the
-same PC, they need to start their IPFS services on different ports. Otherwise,
-the program that executes later will not work properly. To make sure this
-holds, modify the `Addresses => Swarm` JSON entries in either _client's_ or
-_injector's_ `<PATH TO IPFS REPOSITORY>/config` file.
-
-

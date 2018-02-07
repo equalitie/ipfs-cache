@@ -54,23 +54,27 @@ int main(int argc, const char** argv)
 
     asio::io_service ios;
 
-    try {
-        cout << "Starting event loop, press Ctrl-C to exit." << endl;
+    cout << "Starting event loop, press Ctrl-C to exit." << endl;
 
-        ipfs_cache::Client client(ios, ipns, repo);
+    asio::spawn(ios, [&](asio::yield_context yield) {
+            ipfs_cache::Client client(ios, ipns, repo);
 
-        cout << "Fetching..." << endl;
+            try {
+                cout << "Waiting for DB update..." << endl;
+                client.wait_for_db_update(yield);
 
-        asio::spawn(ios, [&](asio::yield_context yield) {
-                string value = client.get_content(key, yield);
-                cout << "Value:" << value << endl;
-            });
+                cout << "Fetching..." << endl;
+                ipfs_cache::CachedContent value = client.get_content(key, yield);
 
-        ios.run();
-    }
-    catch (const exception& e) {
-        cerr << "Exception " << e.what() << endl;
-    }
+                cout << "Time stamp: " << value.ts << endl
+                     << "Value: " << value.data << endl;
+            }
+            catch (const exception& e) {
+                cerr << "Error: " << e.what() << endl;
+            }
+        });
+
+    ios.run();
 
     return 0;
 }

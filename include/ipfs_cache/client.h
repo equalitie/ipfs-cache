@@ -2,6 +2,7 @@
 
 #include <boost/asio/spawn.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -14,8 +15,15 @@ namespace boost { namespace asio {
 namespace ipfs_cache {
 
 struct Backend;
-struct Db;
+struct ClientDb;
 using Json = nlohmann::json;
+
+struct CachedContent {
+    // Data time stamp, not a date/time on errors.
+    boost::posix_time::ptime ts;
+    // Cached data.
+    std::string data;
+};
 
 class Client {
 public:
@@ -24,6 +32,9 @@ public:
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;
 
+    Client(Client&&);
+    Client& operator=(Client&&);
+
     // Find the content previously stored by the injector under `url`.
     // The content is returned in the parameter of the callback function.
     //
@@ -31,9 +42,11 @@ public:
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
     void get_content( std::string url
-                    , std::function<void(boost::system::error_code, std::string)>);
+                    , std::function<void(boost::system::error_code, CachedContent)>);
 
-    std::string get_content(std::string url, boost::asio::yield_context);
+    CachedContent get_content(std::string url, boost::asio::yield_context);
+
+    void wait_for_db_update(boost::asio::yield_context);
 
     const std::string& ipns() const;
     const std::string& ipfs() const;
@@ -43,7 +56,7 @@ public:
 
 private:
     std::unique_ptr<Backend> _backend;
-    std::unique_ptr<Db> _db;
+    std::unique_ptr<ClientDb> _db;
 };
 
 } // ipfs_cache namespace
