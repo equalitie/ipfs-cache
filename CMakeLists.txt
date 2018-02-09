@@ -172,7 +172,7 @@ set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
 ################################################################################
 if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
 ################################################################################
-find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine system)
+find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine context thread system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -191,7 +191,7 @@ target_link_libraries(cache_client--${TARGET}
     ${Boost_LIBRARIES})
 
 ################################################################################
-find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine system)
+find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine context thread system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
