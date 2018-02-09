@@ -172,9 +172,13 @@ set_target_properties(ipfs-cache--${TARGET} PROPERTIES LINKER_LANGUAGE CXX)
 add_dependencies(ipfs-cache--${TARGET} json ipfs)
 
 ################################################################################
-set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
-set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOPE)
-set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+# Only set these variables if this CMakeLists.txt is included from another one.
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(hasParent)
+    set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
+    set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOPE)
+    set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+endif()
 
 ################################################################################
 if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
