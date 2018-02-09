@@ -12,8 +12,8 @@ namespace boost { namespace asio {
 
 namespace ipfs_cache {
 
-struct Backend;
-struct InjectorDb;
+class Backend;
+class InjectorDb;
 
 class Injector {
 public:

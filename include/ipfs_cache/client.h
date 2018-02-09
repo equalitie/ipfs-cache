@@ -14,8 +14,8 @@ namespace boost { namespace asio {
 
 namespace ipfs_cache {
 
-struct Backend;
-struct ClientDb;
+class Backend;
+class ClientDb;
 using Json = nlohmann::json;
 
 struct CachedContent {
