@@ -29,7 +29,7 @@ namespace ipfs_cache { namespace error {
             return "ipfs_errors";
         }
     
-        std::string message(int e) const
+        std::string message(int e) const override
         {
             switch (e) {
                 case IPFS_SUCCESS:
@@ -57,7 +57,7 @@ namespace ipfs_cache { namespace error {
             return "ipfs_cache_errors";
         }
     
-        std::string message(int e) const
+        std::string message(int e) const override
         {
             switch (e) {
                 case error::key_not_found:

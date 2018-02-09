@@ -1,7 +1,59 @@
 cmake_minimum_required (VERSION 3.5)
+################################################################################
+
 # NOTE: from_iso_extended_string has been introduced in Boost 1.62
 set(BOOST_VERSION 1.62)
 include(ExternalProject)
+
+################################################################################
+project(ipfs-cache)
+
+find_package(Threads)
+find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS
+    program_options
+    date_time
+    coroutine
+    context
+    thread
+    system)
+
+# Convert system name into GOOS.
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    set(GOOS "linux")
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    set(GOOS "android")
+else()
+    message(FATAL_ERROR "unsupported system name ${CMAKE_SYSTEM_NAME}")
+endif()
+
+# Convert system processor into GOARCH (and maybe GOARM).
+if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+    set(GOARCH "amd64")
+elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+    set(GOARCH "arm64")
+elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
+    set(GOARCH "arm")
+    set(GOARM "7")
+elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "^arm.*")
+    set(GOARCH "arm")
+    set(GOARM "6")
+else()
+    message(FATAL_ERROR "unsupported system processor ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+# Build target tag with the Android API version if relevant.
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    set(TARGET "${CMAKE_SYSTEM_NAME}${CMAKE_SYSTEM_VERSION}--${CMAKE_SYSTEM_PROCESSOR}")
+else()
+    set(TARGET "${CMAKE_SYSTEM_NAME}--${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+################################################################################
+option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
+
+add_definitions(-DBOOST_COROUTINE_NO_DEPRECATION_WARNING
+                -DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
+
 ################################################################################
 option(IPFS_CACHE_WITH_EXAMPLE_BINARIES "Build with example binaries" ON)
 
@@ -22,7 +74,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_CURRENT_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ipfs_bindings")
+set(BINDING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ipfs_bindings--${TARGET}")
 
 ################################################################################
 if(NOT TARGET beast)
@@ -35,6 +87,12 @@ if(NOT TARGET beast)
       PREFIX "beast")
 
     set(BEAST_DIR "${CMAKE_CURRENT_BINARY_DIR}/beast/src/beast")
+endif()
+
+# Android does not support POSIX file:
+# <https://github.com/boostorg/beast/issues/800>.
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_BEAST_NO_POSIX_FILE=0")
 endif()
 
 ################################################################################
@@ -71,16 +129,11 @@ externalproject_add(ipfs
                && export GOROOT=${GOROOT}
                && export PATH=${GOROOT}/bin:$ENV{PATH}
                && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
-               && make install
+               && make deps
     INSTALL_COMMAND ""
     PREFIX "ipfs")
 
 ################################################################################
-project(ipfs-cache)
-
-find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS)
-find_package(Threads)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -91,45 +144,53 @@ include_directories(
 
 add_custom_command(
     OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${BINDING_DIR}/ipfs_bindings.a
+           ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings.go
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
     COMMAND mkdir -p ${BINDING_DIR}
-         && cd ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
+         && export GOOS=${GOOS}
+         && export GOARCH=${GOARCH}
+         && export GOARM=${GOARM}
+         && export CGO_ENABLED=1
+         && export CC=${CMAKE_C_COMPILER}
          && export PATH=${GOROOT}/bin:$ENV{PATH}
-         && go build --buildmode=c-archive ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings.go)
+         && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
+         && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
+         && rsync -r ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src .
+         && go build --buildmode=c-shared -o ${BINDING_DIR}/ipfs_bindings.so ./src/ipfs_bindings
+         && cp -f ${BINDING_DIR}/ipfs_bindings.so ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
+         && chmod +x ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
 
 file(GLOB sources
   "./src/*.h"
   "./src/*.cpp")
 
-add_library(ipfs-cache STATIC ${sources}
+add_library(ipfs-cache--${TARGET} SHARED ${sources}
     ${BINDING_DIR}/ipfs_bindings.h
-    ${BINDING_DIR}/ipfs_bindings.a)
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
 
-add_dependencies(ipfs-cache json ipfs)
+set_target_properties(ipfs-cache--${TARGET} PROPERTIES LINKER_LANGUAGE CXX)
 
-# Append object files from  ipfs_bindings.a into libipfs-cache.a.
-add_custom_command(TARGET ipfs-cache
-    POST_BUILD
-    COMMAND cd ${BINDING_DIR}
-         && ar -x ipfs_bindings.a
-         && cd ${CMAKE_CURRENT_BINARY_DIR}
-         && ar -qc libipfs-cache.a ${BINDING_DIR}/*.o)
+add_dependencies(ipfs-cache--${TARGET} json ipfs)
 
 ################################################################################
-set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
-set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOPE)
-set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+# Only set these variables if this CMakeLists.txt is included from another one.
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(hasParent)
+    set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
+    set(IPFS_CACHE_TARGET "ipfs-cache--${TARGET}" PARENT_SCOPE)
+    set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+    set(IPFS_CACHE_LIBRARIES
+        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so"
+        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so"
+        PARENT_SCOPE)
+endif()
 
 ################################################################################
 if(IPFS_CACHE_WITH_EXAMPLE_BINARIES)
 ################################################################################
-project(cache_client)
-
-find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -138,18 +199,16 @@ include_directories(
 set(sources
   "./example/client.cpp")
 
-add_executable(cache_client ${sources})
+add_executable(cache_client--${TARGET} ${sources})
 
-add_dependencies(cache_client ipfs-cache)
+add_dependencies(cache_client--${TARGET} ipfs-cache--${TARGET})
 
-target_link_libraries(cache_client
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a
+target_link_libraries(cache_client--${TARGET}
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
-project(cache_injector)
-
-find_package(Boost ${BOOST_VERSION} REQUIRED COMPONENTS program_options date_time coroutine system)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 include_directories(
@@ -159,12 +218,13 @@ include_directories(
 set(sources
   "./example/injector.cpp")
 
-add_executable(cache_injector ${sources})
+add_executable(cache_injector--${TARGET} ${sources})
 
-add_dependencies(cache_injector ipfs-cache beast)
+add_dependencies(cache_injector--${TARGET} ipfs-cache--${TARGET} beast)
 
-target_link_libraries(cache_injector
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a
+target_link_libraries(cache_injector--${TARGET}
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so
+    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
     ${Boost_LIBRARIES})
 
 ################################################################################
