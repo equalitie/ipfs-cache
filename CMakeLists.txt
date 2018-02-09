@@ -154,7 +154,7 @@ add_custom_command(
          && export PATH=${GOROOT}/bin:$ENV{PATH}
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
-         && rsync -r ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src .
+         && rsync -r ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src .
          && go build --buildmode=c-shared -o ${BINDING_DIR}/ipfs_bindings.so ./src/ipfs_bindings
          && cp -f ${BINDING_DIR}/ipfs_bindings.so ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
          && chmod +x ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
@@ -176,8 +176,12 @@ add_dependencies(ipfs-cache--${TARGET} json ipfs)
 get_directory_property(hasParent PARENT_DIRECTORY)
 if(hasParent)
     set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
-    set(IPFS_CACHE_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache.a" PARENT_SCOPE)
+    set(IPFS_CACHE_TARGET "ipfs-cache--${TARGET}" PARENT_SCOPE)
     set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
+    set(IPFS_CACHE_LIBRARIES
+        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so"
+        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so"
+        PARENT_SCOPE)
 endif()
 
 ################################################################################
