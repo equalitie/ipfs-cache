@@ -74,7 +74,7 @@ externalproject_add(json
     PREFIX json)
 
 set(JSON_DIR "${CMAKE_CURRENT_BINARY_DIR}/json/src/json/src")
-set(BINDING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ipfs_bindings--${TARGET}")
+set(BINDING_DIR "${CMAKE_CURRENT_BINARY_DIR}/ipfs_bindings")
 
 ################################################################################
 if(NOT TARGET beast)
@@ -136,17 +136,15 @@ externalproject_add(ipfs
 ################################################################################
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
-include_directories(
-    "${Boost_INCLUDE_DIR}"
-    "${JSON_DIR}"
-    "${BINDING_DIR}"
-    "./include")
+set(BINDINGS_HEADER  "${BINDING_DIR}/ipfs_bindings.h")
+set(BINDINGS_LIBRARY "${BINDING_DIR}/ipfs_bindings.so")
+set(BINDINGS_OUTPUT ${BINDINGS_HEADER} ${BINDINGS_LIBRARY})
 
 add_custom_command(
-    OUTPUT ${BINDING_DIR}/ipfs_bindings.h
-           ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
+    OUTPUT ${BINDINGS_OUTPUT}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/ipfs_cache/ipfs_error_codes.h
             ${CMAKE_CURRENT_SOURCE_DIR}/src/ipfs_bindings/ipfs_bindings.go
+            ipfs
     COMMAND mkdir -p ${BINDING_DIR}
          && export GOPATH=${GOPATH}
          && export GOROOT=${GOROOT}
@@ -159,32 +157,43 @@ add_custom_command(
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && rsync -r ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src .
-         && go build --buildmode=c-shared -o ${BINDING_DIR}/ipfs_bindings.so ./src/ipfs_bindings
-         && cp -f ${BINDING_DIR}/ipfs_bindings.so ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
-         && chmod +x ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
+         && go build -ldflags '-extldflags -Wl,-soname,ipfs_bindings.so'
+                     --buildmode=c-shared
+                     -o ${BINDING_DIR}/ipfs_bindings.so
+                     ./src/ipfs_bindings)
+
+
+add_custom_target(ipfs-bindings-target DEPENDS ${BINDINGS_OUTPUT})
+add_library(ipfs-bindings SHARED IMPORTED GLOBAL)
+add_dependencies(ipfs-bindings ipfs-bindings-target)
+set_target_properties(ipfs-bindings PROPERTIES IMPORTED_LOCATION ${BINDINGS_LIBRARY})
+
+################################################################################
+include_directories(
+    "${Boost_INCLUDE_DIR}"
+    "${JSON_DIR}"
+    "${BINDING_DIR}"
+    "./include")
 
 file(GLOB sources
   "./src/*.h"
   "./src/*.cpp")
 
-add_library(ipfs-cache--${TARGET} SHARED ${sources}
-    ${BINDING_DIR}/ipfs_bindings.h
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so)
-
-set_target_properties(ipfs-cache--${TARGET} PROPERTIES LINKER_LANGUAGE CXX)
-
-add_dependencies(ipfs-cache--${TARGET} json ipfs)
+add_library(ipfs-cache SHARED ${sources})
+set_target_properties(ipfs-cache PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(ipfs-cache ipfs-bindings)
+add_dependencies(ipfs-cache json ipfs-bindings)
 
 ################################################################################
 # Only set these variables if this CMakeLists.txt is included from another one.
 get_directory_property(hasParent PARENT_DIRECTORY)
 if(hasParent)
     set(IPFS_CACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" PARENT_SCOPE)
-    set(IPFS_CACHE_TARGET "ipfs-cache--${TARGET}" PARENT_SCOPE)
+    set(IPFS_CACHE_TARGET "ipfs-cache" PARENT_SCOPE)
     set(IPFS_CACHE_JSON_INCLUDE_DIR "${JSON_DIR}" PARENT_SCOPE)
     set(IPFS_CACHE_LIBRARIES
-        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so"
-        "${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so"
+        ipfs-cache
+        ipfs-bindings
         PARENT_SCOPE)
 endif()
 
@@ -196,17 +205,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITI
 include_directories(
     "./include")
 
-set(sources
-  "./example/client.cpp")
+set(sources "./example/client.cpp")
 
-add_executable(cache_client--${TARGET} ${sources})
-
-add_dependencies(cache_client--${TARGET} ipfs-cache--${TARGET})
-
-target_link_libraries(cache_client--${TARGET}
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
-    ${Boost_LIBRARIES})
+add_executable(cache_client ${sources})
+add_dependencies(cache_client ipfs-cache)
+target_link_libraries(cache_client ipfs-cache ipfs-bindings ${Boost_LIBRARIES})
 
 ################################################################################
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
@@ -215,17 +218,11 @@ include_directories(
     "${BEAST_DIR}/include"
     "./include")
 
-set(sources
-  "./example/injector.cpp")
+set(sources "./example/injector.cpp")
 
-add_executable(cache_injector--${TARGET} ${sources})
-
-add_dependencies(cache_injector--${TARGET} ipfs-cache--${TARGET} beast)
-
-target_link_libraries(cache_injector--${TARGET}
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-cache--${TARGET}.so
-    ${CMAKE_CURRENT_BINARY_DIR}/libipfs-bindings--${TARGET}.so
-    ${Boost_LIBRARIES})
+add_executable(cache_injector ${sources})
+add_dependencies(cache_injector ipfs-cache beast)
+target_link_libraries(cache_injector ipfs-cache ipfs-bindings ${Boost_LIBRARIES})
 
 ################################################################################
 endif() # IPFS_CACHE_WITH_EXAMPLE_BINARIES
