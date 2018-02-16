@@ -45,6 +45,8 @@ public:
 
     void wait_for_db_update(boost::asio::yield_context);
 
+    Backend& backend() { return _backend; }
+
     ~ClientDb();
 
 private:
@@ -78,6 +80,8 @@ public:
     boost::asio::io_service& get_io_service();
 
     const std::string& ipns() const { return _ipns; }
+
+    Backend& backend() { return _backend; }
 
     ~InjectorDb();
 

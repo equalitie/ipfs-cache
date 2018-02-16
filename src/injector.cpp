@@ -7,6 +7,7 @@
 
 #include "backend.h"
 #include "db.h"
+#include "get_content.h"
 
 using namespace std;
 using namespace ipfs_cache;
@@ -79,6 +80,11 @@ string Injector::insert_content(string key, const string& value, asio::yield_con
         });
 
     return result.get();
+}
+
+CachedContent Injector::get_content(string url, asio::yield_context yield)
+{
+    return ipfs_cache::get_content(*_db, url, yield);
 }
 
 Injector::~Injector() {}

@@ -2,11 +2,12 @@
 
 #include <boost/asio/spawn.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <functional>
 #include <memory>
 #include <string>
 #include <json.hpp>
+
+#include <ipfs_cache/cached_content.h>
 
 namespace boost { namespace asio {
     class io_service;
@@ -17,13 +18,6 @@ namespace ipfs_cache {
 class Backend;
 class ClientDb;
 using Json = nlohmann::json;
-
-struct CachedContent {
-    // Data time stamp, not a date/time on errors.
-    boost::posix_time::ptime ts;
-    // Cached data.
-    std::string data;
-};
 
 class Client {
 public:
@@ -41,9 +35,6 @@ public:
     // Basically it does this: Look into the database to find the IPFS_ID
     // correspoinding to the `url`, when found, fetch the content corresponding
     // to that IPFS_ID from IPFS.
-    void get_content( std::string url
-                    , std::function<void(boost::system::error_code, CachedContent)>);
-
     CachedContent get_content(std::string url, boost::asio::yield_context);
 
     void wait_for_db_update(boost::asio::yield_context);

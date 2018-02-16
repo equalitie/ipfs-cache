@@ -6,6 +6,8 @@
 #include <memory>
 #include <queue>
 
+#include <ipfs_cache/cached_content.h>
+
 namespace boost { namespace asio {
     class io_service;
 }}
@@ -50,6 +52,14 @@ public:
     std::string insert_content( std::string url
                               , const std::string& content
                               , boost::asio::yield_context);
+
+    // Find the content previously stored by the injector under `url`.
+    // The content is returned in the parameter of the callback function.
+    //
+    // Basically it does this: Look into the database to find the IPFS_ID
+    // correspoinding to the `url`, when found, fetch the content corresponding
+    // to that IPFS_ID from IPFS.
+    CachedContent get_content(std::string url, boost::asio::yield_context);
 
     ~Injector();
 
