@@ -196,7 +196,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
     auto sites_i = db.find("sites");
 
     if (sites_i == db.end() || !sites_i->is_object()) {
-        ec = make_error_code(error::key_not_found);
+        ec = make_error_code(asio::error::not_found);
         return entry;
     }
 
@@ -204,7 +204,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
 
     // We only ever store objects with "ts" and "data" members.
     if (item_i == sites_i->end() || !item_i->is_object()) {
-        ec = make_error_code(error::key_not_found);
+        ec = make_error_code(asio::error::not_found);
         return entry;
     }
 

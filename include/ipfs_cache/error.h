@@ -15,8 +15,7 @@ namespace ipfs_cache { namespace error {
     };
     
     enum error_t {
-        key_not_found = 1, // Start with > 0, because 0 means success.
-        db_download_failed,
+        db_download_failed = 1, // Start with > 0, because 0 means success.,
         invalid_db_format,
         malformed_db_entry,
         missing_ipfs_link,
@@ -60,8 +59,6 @@ namespace ipfs_cache { namespace error {
         std::string message(int e) const override
         {
             switch (e) {
-                case error::key_not_found:
-                    return "key not found";
                 case error::db_download_failed:
                     return "database download failed";
                 case error::invalid_db_format:

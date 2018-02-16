@@ -25,7 +25,7 @@ void Client::get_content(string url, function<void(sys::error_code, CachedConten
     CacheEntry entry = _db->query(url, ec);
 
     if (!ec && entry.ts.is_not_a_date_time()) {
-        ec = error::key_not_found;
+        ec = asio::error::not_found;
     }
 
     if (ec) {
