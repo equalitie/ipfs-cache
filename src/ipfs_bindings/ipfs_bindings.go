@@ -282,7 +282,27 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 			defer fmt.Println("go_ipfs_cache_cat end");
 		}
 
-		reader, err := coreunix.Cat(g.ctx, g.node, cid)
+		var reader io.Reader
+		// Sometimes the Cat operation gets stuck indefinitely.
+		// We derive a context with a timeout and spawn the Cat operation with it
+		// so that we can cancel it if if takes too long.
+		cat_chan := make(chan error, 1)
+		cat_ctx, cat_cancel := context.WithTimeout(g.ctx, time.Duration(5) * time.Second)  // XXXX magic constant
+		go func() {
+			rdr, err := coreunix.Cat(cat_ctx, g.node, cid)
+			reader = rdr
+			cat_chan <- err
+		}()
+
+		var err error
+		// Check whether the Cat operation times out or completes.
+		select {
+		case <- cat_ctx.Done():  // timed out
+			cat_cancel()
+			<- cat_chan  // wait for Cat to return
+			err = cat_ctx.Err()
+		case err = <- cat_chan:  // get the error, the reader is already set
+		}
 
 		if err != nil {
 			fmt.Println("go_ipfs_cache_cat failed to Cat");
