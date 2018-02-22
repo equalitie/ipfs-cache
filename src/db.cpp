@@ -110,7 +110,10 @@ boost::posix_time::ptime ptime_from_string(const string& s) {
 
 const string ipfs_uri_prefix = "ipfs:/ipfs/";
 
-void InjectorDb::update(string key, string content_hash, function<void(sys::error_code)> cb)
+void InjectorDb::update( string key
+                       , size_t content_size
+                       , string content_hash
+                       , function<void(sys::error_code)> cb)
 {
     if (_local_db == Json()) {
         initialize_db(_local_db, _ipns);
@@ -123,6 +126,7 @@ void InjectorDb::update(string key, string content_hash, function<void(sys::erro
         try {
             _local_db["sites"][key] = {
                 { "ts", now_as_string() },
+                { "size", uint64_t(content_size) },
                 // Point an IPFS URI to the actual data.
                 { "data", { ipfs_uri_prefix + content_hash } }
             };
@@ -217,6 +221,14 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
         return entry;
     }
 
+    auto size_i = item_i->find("size");
+    if (size_i == item_i->end() || !size_i->is_number()) {
+        ec = make_error_code(error::malformed_db_entry);
+        return entry;
+    }
+
+    entry.content_size = *size_i;
+
     auto data_i = item_i->find("data");
 
     // An array of strings (link URIs) is expected here.
@@ -230,6 +242,7 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
             if (!item.is_string())
                 return false;
             string link = item;
+            // TODO: C++20 has a `starts_with` function.
             return link.find(ipfs_uri_prefix) == 0;
         }
     );
@@ -269,6 +282,8 @@ void ClientDb::merge(const Json& remote_db)
 Json ClientDb::download_database( const string& ipns
                                 , sys::error_code& ec
                                 , asio::yield_context yield) {
+    using namespace std::chrono_literals;
+
     auto d = _was_destroyed;
 
     auto ipfs_id = _backend.resolve(ipns, yield[ec]);
@@ -278,7 +293,7 @@ Json ClientDb::download_database( const string& ipns
 
     assert(ipfs_id.size());
 
-    string content = _backend.cat(ipfs_id, yield[ec]);
+    string content = _backend.cat(ipfs_id, 60s, yield[ec]);
 
     if (*d) { ec = asio::error::operation_aborted; }
     if (ec) return Json();

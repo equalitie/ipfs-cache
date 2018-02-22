@@ -19,6 +19,7 @@ struct BackendImpl;
 
 class Backend {
     using Timer = boost::asio::steady_timer;
+    using Duration = Timer::duration;
 
     template<class Token, class... Ret>
     using Handler = typename asio::handler_type< Token
@@ -47,7 +48,13 @@ public:
 
     template<class Token>
     typename Result<Token, std::string>::type
-    cat(const std::string& cid, Token&&);
+    cat(const std::string& cid, Duration timeout, Token&&);
+
+    // The expected_size argument is being used to calculate
+    // timeout value.
+    template<class Token>
+    typename Result<Token, std::string>::type
+    cat(const std::string& cid, size_t expected_size, Token&&);
 
     template<class Token>
     void
@@ -66,6 +73,11 @@ private:
              , std::function<void(boost::system::error_code, std::string)>);
 
     void cat_( const std::string& cid
+             , size_t expected_size
+             , std::function<void(boost::system::error_code, std::string)>);
+
+    void cat_( const std::string& cid
+             , Duration timeout
              , std::function<void(boost::system::error_code, std::string)>);
 
     void publish_( const std::string& cid, Timer::duration
@@ -102,11 +114,21 @@ Backend::add(const std::string& data, Token&& token)
 
 template<class Token>
 typename Backend::Result<Token, std::string>::type
-Backend::cat(const std::string& cid, Token&& token)
+Backend::cat(const std::string& cid, size_t expected_size, Token&& token)
 {
     Handler<Token, std::string> handler(std::forward<Token>(token));
     Result<Token, std::string> result(handler);
-    cat_(cid, std::move(handler));
+    cat_(cid, expected_size, std::move(handler));
+    return result.get();
+}
+
+template<class Token>
+typename Backend::Result<Token, std::string>::type
+Backend::cat(const std::string& cid, Duration timeout, Token&& token)
+{
+    Handler<Token, std::string> handler(std::forward<Token>(token));
+    Result<Token, std::string> result(handler);
+    cat_(cid, timeout, std::move(handler));
     return result.get();
 }
 

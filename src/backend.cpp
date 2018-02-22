@@ -142,13 +142,42 @@ void Backend::add_(const uint8_t* data, size_t size, function<void(sys::error_co
                      , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
-void Backend::cat_(const string& ipfs_id, function<void(sys::error_code, string)> cb)
+void Backend::cat_( const string& ipfs_id
+                  , Duration timeout
+                  , function<void(sys::error_code, string)> cb)
 {
+    using namespace std::chrono;
+
     assert(ipfs_id.size() == CID_SIZE);
+
+    // TODO: Pass `timeout_ms` to the `go_ipfs_cache_cat` function.
+    uint32_t timeout_ms = duration_cast<milliseconds>(timeout).count();
 
     go_ipfs_cache_cat( (char*) ipfs_id.data()
                      , (void*) Handle<string>::call_data
                      , (void*) new Handle<string>{_impl, move(cb)} );
+}
+
+void Backend::cat_( const string& ipfs_id
+                  , size_t expected_size
+                  , function<void(sys::error_code, string)> cb)
+{
+    assert(ipfs_id.size() == CID_SIZE);
+
+    // TODO: Gather statistics of the averate download speed to
+    //       calculate timeout more precisely.
+    //
+    //         Convert seconds to milliseconds
+    //                     ^         Speed of old Dial-up connections
+    //                     |                        ^
+    //                     |                        |
+    uint32_t timeout_ms = 1000 * expected_size / (14400/8);
+
+    // Clamp the timeout to some reasonable defaults.
+    timeout_ms = std::min<uint32_t>(timeout_ms, 10 * 60 * 1000 /* 10 minutes */);
+    timeout_ms = std::max<uint32_t>(timeout_ms, 10 *      1000 /* 10 seconds */);
+
+    cat(ipfs_id, chrono::milliseconds(timeout_ms), move(cb));
 }
 
 boost::asio::io_service& Backend::get_io_service()

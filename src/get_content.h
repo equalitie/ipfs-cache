@@ -25,6 +25,7 @@ void get_content( Db& db
     }
 
     db.backend().cat( entry.content_hash
+                    , entry.content_size
                     , [cb = std::move(cb), ts = entry.ts]
                       (sys::error_code ecc, std::string s) {
             if (ecc) {
