@@ -154,6 +154,7 @@ void Backend::cat_( const string& ipfs_id
     uint32_t timeout_ms = duration_cast<milliseconds>(timeout).count();
 
     go_ipfs_cache_cat( (char*) ipfs_id.data()
+                     , timeout_ms
                      , (void*) Handle<string>::call_data
                      , (void*) new Handle<string>{_impl, move(cb)} );
 }

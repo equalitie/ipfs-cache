@@ -273,8 +273,9 @@ func go_ipfs_cache_add(data unsafe.Pointer, size C.size_t, fn unsafe.Pointer, fn
 }
 
 //export go_ipfs_cache_cat
-func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+func go_ipfs_cache_cat(c_cid *C.char, c_tmo_ms C.uint, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	cid := C.GoString(c_cid)
+	tmo_ms := time.Duration(c_tmo_ms) * time.Millisecond
 
 	go func() {
 		if debug {
@@ -287,7 +288,7 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 		// We derive a context with a timeout and spawn the Cat operation with it
 		// so that we can cancel it if if takes too long.
 		cat_chan := make(chan error, 1)
-		cat_ctx, cat_cancel := context.WithTimeout(g.ctx, time.Duration(5) * time.Second)  // XXXX magic constant
+		cat_ctx, cat_cancel := context.WithTimeout(g.ctx, tmo_ms)
 		go func() {
 			rdr, err := coreunix.Cat(cat_ctx, g.node, cid)
 			reader = rdr
