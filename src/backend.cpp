@@ -150,7 +150,6 @@ void Backend::cat_( const string& ipfs_id
 
     assert(ipfs_id.size() == CID_SIZE);
 
-    // TODO: Pass `timeout_ms` to the `go_ipfs_cache_cat` function.
     uint32_t timeout_ms = duration_cast<milliseconds>(timeout).count();
 
     go_ipfs_cache_cat( (char*) ipfs_id.data()
