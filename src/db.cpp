@@ -293,7 +293,7 @@ Json ClientDb::download_database( const string& ipns
 
     assert(ipfs_id.size());
 
-    string content = _backend.cat(ipfs_id, 60s, yield[ec]);
+    string content = _backend.cat(ipfs_id, 60s, yield[ec]);  // XXXX magic constant
 
     if (*d) { ec = asio::error::operation_aborted; }
     if (ec) return Json();
