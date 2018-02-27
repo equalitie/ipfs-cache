@@ -81,4 +81,13 @@ void Republisher::start_publishing()
 Republisher::~Republisher()
 {
     *_was_destroyed = true;
+
+    auto& ios = _backend.get_io_service();
+    auto cbs = move(_callbacks);
+
+    for (auto& cb : cbs) {
+        ios.post([cb = move(cb)] {
+                cb(asio::error::operation_aborted);
+            });
+    }
 }
