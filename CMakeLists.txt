@@ -137,7 +137,7 @@ externalproject_add(ipfs
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -ggdb ${SANITIZE}")
 
 set(BINDINGS_HEADER  "${BINDING_DIR}/ipfs_bindings.h")
-set(BINDINGS_LIBRARY "${BINDING_DIR}/ipfs_bindings.so")
+set(BINDINGS_LIBRARY "${BINDING_DIR}/libipfs_bindings.so")
 set(BINDINGS_OUTPUT ${BINDINGS_HEADER} ${BINDINGS_LIBRARY})
 
 add_custom_command(
@@ -157,10 +157,11 @@ add_custom_command(
          && mkdir -p ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && cd ${GOPATH}/src/github.com/equalitie/ipfs-cache
          && rsync -r ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src .
-         && go build -ldflags '-extldflags -Wl,-soname,ipfs_bindings.so'
+         && go build -ldflags '-extldflags -Wl,-soname,libipfs_bindings.so'
                      --buildmode=c-shared
                      -o ${BINDING_DIR}/ipfs_bindings.so
-                     ./src/ipfs_bindings)
+                     ./src/ipfs_bindings
+         && mv ${BINDING_DIR}/ipfs_bindings.so ${BINDING_DIR}/libipfs_bindings.so)
 
 
 add_custom_target(ipfs-bindings-target DEPENDS ${BINDINGS_OUTPUT})
