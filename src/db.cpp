@@ -111,7 +111,6 @@ boost::posix_time::ptime ptime_from_string(const string& s) {
 const string ipfs_uri_prefix = "ipfs:/ipfs/";
 
 void InjectorDb::update( string key
-                       , size_t content_size
                        , string content_hash
                        , function<void(sys::error_code)> cb)
 {
@@ -126,7 +125,6 @@ void InjectorDb::update( string key
         try {
             _local_db["sites"][key] = {
                 { "ts", now_as_string() },
-                { "size", uint64_t(content_size) },
                 // Point an IPFS URI to the actual data.
                 { "data", { ipfs_uri_prefix + content_hash } }
             };
@@ -220,14 +218,6 @@ static CacheEntry query_(string key, const Json& db, sys::error_code& ec)
         ec = make_error_code(error::malformed_db_entry);
         return entry;
     }
-
-    auto size_i = item_i->find("size");
-    if (size_i == item_i->end() || !size_i->is_number()) {
-        ec = make_error_code(error::malformed_db_entry);
-        return entry;
-    }
-
-    entry.content_size = *size_i;
 
     auto data_i = item_i->find("data");
 

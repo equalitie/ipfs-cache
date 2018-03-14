@@ -50,12 +50,6 @@ public:
     typename Result<Token, std::string>::type
     cat(const std::string& cid, Duration timeout, Token&&);
 
-    // The expected_size argument is being used to calculate
-    // timeout value.
-    template<class Token>
-    typename Result<Token, std::string>::type
-    cat(const std::string& cid, size_t expected_size, Token&&);
-
     template<class Token>
     void
     publish( const std::string& cid, Timer::duration, Token&&);
@@ -70,10 +64,6 @@ public:
 
 private:
     void add_( const uint8_t* data, size_t size
-             , std::function<void(boost::system::error_code, std::string)>);
-
-    void cat_( const std::string& cid
-             , size_t expected_size
              , std::function<void(boost::system::error_code, std::string)>);
 
     void cat_( const std::string& cid
@@ -109,16 +99,6 @@ Backend::add(const std::string& data, Token&& token)
     add_( reinterpret_cast<const uint8_t*>(data.c_str())
         , data.size()
         , std::move(handler));
-    return result.get();
-}
-
-template<class Token>
-typename Backend::Result<Token, std::string>::type
-Backend::cat(const std::string& cid, size_t expected_size, Token&& token)
-{
-    Handler<Token, std::string> handler(std::forward<Token>(token));
-    Result<Token, std::string> result(handler);
-    cat_(cid, expected_size, std::move(handler));
     return result.get();
 }
 

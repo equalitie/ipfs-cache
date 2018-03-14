@@ -158,28 +158,6 @@ void Backend::cat_( const string& ipfs_id
                      , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
-void Backend::cat_( const string& ipfs_id
-                  , size_t expected_size
-                  , function<void(sys::error_code, string)> cb)
-{
-    assert(ipfs_id.size() == CID_SIZE);
-
-    // TODO: Gather statistics of the averate download speed to
-    //       calculate timeout more precisely.
-    //
-    //         Convert seconds to milliseconds
-    //                     ^         Speed of old Dial-up connections
-    //                     |                        ^
-    //                     |                        |
-    uint32_t timeout_ms = 1000 * expected_size / (14400/8);
-
-    // Clamp the timeout to some reasonable defaults.
-    timeout_ms = std::min<uint32_t>(timeout_ms, 10 * 60 * 1000 /* 10 minutes */);
-    timeout_ms = std::max<uint32_t>(timeout_ms, 10 *      1000 /* 10 seconds */);
-
-    cat(ipfs_id, chrono::milliseconds(timeout_ms), move(cb));
-}
-
 boost::asio::io_service& Backend::get_io_service()
 {
     return _impl->ios;

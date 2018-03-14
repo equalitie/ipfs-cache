@@ -19,7 +19,7 @@ Injector::Injector(asio::io_service& ios, string path_to_repo)
     : _backend(new Backend(ios, path_to_repo))
     , _db(new InjectorDb(*_backend, path_to_repo))
 {
-    _db->update("", 0, "", [] (sys::error_code) {});
+    _db->update("", "", [] (sys::error_code) {});
 }
 
 string Injector::ipns_id() const
@@ -34,10 +34,8 @@ void Injector::insert_content_from_queue()
     auto e = move(_insert_queue.front());
     _insert_queue.pop();
 
-    size_t value_size = e.value.size();
-
     _backend->add( e.value
-                 , [this, key = move(e.key), cb = move(e.on_insert), value_size]
+                 , [this, key = move(e.key), cb = move(e.on_insert)]
                    (sys::error_code eca, string ipfs_id) {
                         auto ipfs_id_ = ipfs_id;
 
@@ -49,7 +47,6 @@ void Injector::insert_content_from_queue()
                         }
 
                         _db->update( move(key)
-                                   , value_size
                                    , move(ipfs_id)
                                    , [cb = move(cb), ipfs_id = move(ipfs_id_)] (sys::error_code ecu) {
                                          cb(ecu, ipfs_id);

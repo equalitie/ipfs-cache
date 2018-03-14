@@ -10,6 +10,8 @@ void get_content( Db& db
                 , std::string url
                 , std::function<void(sys::error_code, CachedContent)> cb)
 {
+    using namespace std::chrono_literals;
+
     auto& ios = db.backend().get_io_service();
 
     sys::error_code ec;
@@ -25,7 +27,7 @@ void get_content( Db& db
     }
 
     db.backend().cat( entry.content_hash
-                    , entry.content_size
+                    , 60s  // XXXX magic constant
                     , [cb = std::move(cb), ts = entry.ts]
                       (sys::error_code ecc, std::string s) {
             if (ecc) {
