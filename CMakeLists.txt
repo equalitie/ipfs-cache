@@ -180,7 +180,7 @@ file(GLOB sources
   "./src/*.h"
   "./src/*.cpp")
 
-add_library(ipfs-cache SHARED ${sources})
+add_library(ipfs-cache STATIC ${sources})
 set_target_properties(ipfs-cache PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(ipfs-cache ipfs-bindings ${Boost_LIBRARIES})
 add_dependencies(ipfs-cache json ipfs-bindings)
