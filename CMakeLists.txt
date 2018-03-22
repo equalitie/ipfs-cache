@@ -116,12 +116,20 @@ set(IPFS_GO_COMMIT ${IPFS_V0_4_13})
 
 externalproject_add(ipfs
     DOWNLOAD_COMMAND mkdir -p ${GOPATH}
-                  && export GOPATH=${GOPATH}
-                  && export GOROOT=${GOROOT}
-                  && export PATH=${GOROOT}/bin:$ENV{PATH}
-                  && go get -u -d github.com/ipfs/go-ipfs
-                  && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
-                  && git checkout ${IPFS_GO_COMMIT}
+        # If the go-ipfs repo is already downloaded but cmake decides it needs
+        # to be re-downloaded, then we must checkout the master branch or the
+        # `go get` command (executed later) won't work.  We then switch back to
+        # a particular commit after doing the `go get`.
+        COMMAND test -d ${GOPATH}/src/github.com/ipfs/go-ipfs
+             && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
+             && git checkout master
+             || true
+        COMMAND export GOPATH=${GOPATH}
+             && export GOROOT=${GOROOT}
+             && export PATH=${GOROOT}/bin:$ENV{PATH}
+             && go get -u -d github.com/ipfs/go-ipfs
+             && cd ${GOPATH}/src/github.com/ipfs/go-ipfs
+             && git checkout ${IPFS_GO_COMMIT}
     BUILD_ALWAYS 1
     DEPENDS golang
     CONFIGURE_COMMAND ""
