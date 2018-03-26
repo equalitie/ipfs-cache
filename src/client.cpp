@@ -12,8 +12,9 @@ namespace asio = boost::asio;
 namespace sys  = boost::system;
 
 Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
-    : _backend(new Backend(ios, path_to_repo))
-    , _db(new ClientDb(*_backend, path_to_repo, ipns))
+    : _path_to_repo(move(path_to_repo))
+    , _backend(new Backend(ios, _path_to_repo))
+    , _db(new ClientDb(*_backend, _path_to_repo, ipns))
 {
 }
 
@@ -25,6 +26,11 @@ CachedContent Client::get_content(string url, asio::yield_context yield)
 void Client::wait_for_db_update(boost::asio::yield_context yield)
 {
     _db->wait_for_db_update(yield);
+}
+
+void Client::set_ipns(std::string ipns)
+{
+    _db.reset(new ClientDb(*_backend, _path_to_repo, move(ipns)));
 }
 
 const string& Client::ipns() const

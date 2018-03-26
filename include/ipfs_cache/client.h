@@ -39,6 +39,7 @@ public:
 
     void wait_for_db_update(boost::asio::yield_context);
 
+    void set_ipns(std::string ipns);
     const std::string& ipns() const;
     const std::string& ipfs() const;
     const Json& json_db() const;
@@ -46,6 +47,7 @@ public:
     ~Client();
 
 private:
+    std::string _path_to_repo;
     std::unique_ptr<Backend> _backend;
     std::unique_ptr<ClientDb> _db;
 };
