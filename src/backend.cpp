@@ -65,7 +65,8 @@ struct Handle : public HandleBase {
 
         lock_guard<mutex> guard(self->impl->destruct_mutex);
 
-        if (!self->cb) return; // Already cancelled.
+        // Already cancelled?
+        if (!self->cb) { delete self; return; }
 
         self->unlink();
 
@@ -168,7 +169,6 @@ Backend::~Backend()
         auto h = &(*i);
         h->cancel();
         h->unlink();
-        delete h;
 
         i = j;
     }
