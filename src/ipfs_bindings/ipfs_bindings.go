@@ -22,7 +22,7 @@ import (
 	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/core/coreunix"
 
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	peer "gx/ipfs/QmZoWKhxUmZ2seW4BzX6fJkNR8hh9PsGModr7q171yq2SS/go-libp2p-peer"
 )
 
 // #cgo CFLAGS: -DIN_GO=1 -ggdb -I ${SRCDIR}/../../include
@@ -146,7 +146,7 @@ func go_ipfs_cache_start(c_repoPath *C.char) bool {
 
 	g.node, err = core.NewNode(g.ctx, &core.BuildCfg{
 		Online: true,
-		Permament: true,
+		Permanent: true,
 		Repo:   r,
 	})
 
