@@ -51,6 +51,22 @@ const (
 	nBitsForKeypair = 2048
 	repoRoot = "./repo"
 	debug = false
+
+	// This next option makes IPNS resolution much faster:
+	//
+	// https://blog.ipfs.io/34-go-ipfs-0.4.14#ipns-improvements
+	//
+	// But:
+	//
+	// 1. It's an experimental feature which may result in inefficient message
+	//    flooding when many users are participating. Thus it's disabled by
+	//    default. Use only for debugging (if at all).
+	//
+	// 2. It doesn't help with the first publish and first resolve, though
+	//    it seems that once the publisher and resolver found their places
+	//    in the DHT, the two operations become almost instant.
+
+	enablePubSubIPNS = false
 )
 
 func main() {
@@ -148,6 +164,9 @@ func go_ipfs_cache_start(c_repoPath *C.char) bool {
 		Online: true,
 		Permanent: true,
 		Repo:   r,
+		ExtraOpts: map[string]bool{
+			"ipnsps": enablePubSubIPNS,
+		},
 	})
 
 	g.node.SetLocal(false)
