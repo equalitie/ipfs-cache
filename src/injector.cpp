@@ -31,6 +31,8 @@ void Injector::insert_content_from_queue()
 {
     if (_insert_queue.empty()) return;
 
+    ++_job_count;
+
     auto e = move(_insert_queue.front());
     _insert_queue.pop();
 
@@ -65,7 +67,6 @@ void Injector::insert_content( string key
         return;
     }
 
-    ++_job_count;
     insert_content_from_queue();
 }
 
