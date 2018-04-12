@@ -48,13 +48,16 @@ void Injector::insert_content_from_queue()
 
                         _db->update( move(key)
                                    , move(ipfs_id)
-                                   , [cb = move(cb), ipfs_id = move(ipfs_id_)] (sys::error_code ecu) {
+                                   , [cb = move(cb), ipfs_id = move(ipfs_id_)]
+                                     (sys::error_code ecu) {
                                          cb(ecu, ipfs_id);
                                      });
                    });
 }
 
-void Injector::insert_content(string key, const string& value, function<void(sys::error_code, string)> cb)
+void Injector::insert_content( string key
+                             , const string& value
+                             , function<void(sys::error_code, string)> cb)
 {
     _insert_queue.push(InsertEntry{move(key), move(value), move(cb)});
 
