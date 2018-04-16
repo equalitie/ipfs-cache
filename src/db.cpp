@@ -158,6 +158,7 @@ void InjectorDb::continuously_upload_db(asio::yield_context yield)
         auto last_i = --_upload_callbacks.end();
 
         sys::error_code ec;
+        _local_db["ts"] = now_as_string();
         upload_database(_local_db, ec, yield);
 
         if (*wd || ec) return;
