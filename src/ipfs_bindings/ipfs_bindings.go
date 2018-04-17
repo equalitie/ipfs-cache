@@ -66,7 +66,7 @@ const (
 	//    it seems that once the publisher and resolver found their places
 	//    in the DHT, the two operations become almost instant.
 
-	enablePubSubIPNS = false
+	enablePubSubIPNS = true
 )
 
 func main() {
