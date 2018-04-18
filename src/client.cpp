@@ -38,6 +38,11 @@ void Client::set_ipns(std::string ipns)
     _db.reset(new ClientDb(*_backend, _path_to_repo, move(ipns)));
 }
 
+std::string Client::id() const
+{
+    return _backend->ipns_id();
+}
+
 const string& Client::ipns() const
 {
     return _db->ipns();

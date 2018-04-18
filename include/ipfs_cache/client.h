@@ -42,6 +42,9 @@ public:
     void wait_for_db_update(boost::asio::yield_context);
 
     void set_ipns(std::string ipns);
+
+    std::string id() const;
+
     const std::string& ipns() const;
     const std::string& ipfs() const;
     const Json& json_db() const;
