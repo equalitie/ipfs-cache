@@ -29,6 +29,8 @@ public:
     Client(Client&&);
     Client& operator=(Client&&);
 
+    std::string ipfs_add(const std::string& content, boost::asio::yield_context);
+
     // Find the content previously stored by the injector under `url`.
     // The content is returned in the parameter of the callback function.
     //

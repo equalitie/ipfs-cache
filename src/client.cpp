@@ -18,6 +18,11 @@ Client::Client(boost::asio::io_service& ios, string ipns, string path_to_repo)
 {
 }
 
+string Client::ipfs_add(const string& data, asio::yield_context yield)
+{
+    return _backend->add(data, yield);
+}
+
 CachedContent Client::get_content(string url, asio::yield_context yield)
 {
     return ipfs_cache::get_content(*_db, url, yield);
