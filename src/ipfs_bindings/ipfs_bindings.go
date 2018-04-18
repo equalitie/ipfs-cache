@@ -146,18 +146,14 @@ type Cache struct {
 
 var g Cache
 
-//export go_ipfs_cache_start
-func go_ipfs_cache_start(c_repoPath *C.char) bool {
-
-	repoRoot := C.GoString(c_repoPath)
-
+func start_cache(repoRoot string) C.int {
 	g.ctx, g.cancel = context.WithCancel(context.Background())
 
 	r, err := openOrCreateRepo(repoRoot);
 
 	if err != nil {
 		fmt.Println("err", err);
-		return false
+		return C.IPFS_FAILED_TO_CREATE_REPO
 	}
 
 	g.node, err = core.NewNode(g.ctx, &core.BuildCfg{
@@ -173,7 +169,22 @@ func go_ipfs_cache_start(c_repoPath *C.char) bool {
 
 	printSwarmAddrs(g.node)
 
-	return true
+	return C.IPFS_SUCCESS
+}
+
+//export go_ipfs_cache_start
+func go_ipfs_cache_start(c_repoPath *C.char) C.int {
+	repoRoot := C.GoString(c_repoPath)
+	return start_cache(repoRoot);
+}
+
+//export go_ipfs_cache_async_start
+func go_ipfs_cache_async_start(c_repoPath *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	repoRoot := C.GoString(c_repoPath)
+	go func() {
+		err := start_cache(repoRoot);
+		C.execute_void_cb(fn, err, fn_arg)
+	}()
 }
 
 //export go_ipfs_cache_stop

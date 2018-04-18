@@ -100,12 +100,33 @@ struct Handle : public HandleBase {
     }
 };
 
+void Backend::build_( asio::io_service& ios
+                    , const string& repo_path
+                    , function<void( const sys::error_code& ec
+                                   , unique_ptr<Backend>)> cb)
+{
+    auto impl = make_shared<BackendImpl>(ios);
+
+    auto cb_ = [cb = move(cb), impl] (const sys::error_code& ec) {
+        cb(ec, unique_ptr<Backend>(new Backend(move(impl))));
+    };
+
+    go_ipfs_cache_async_start( (char*) repo_path.data()
+                             , (void*) Handle<>::call_void
+                             , (void*) new Handle<>{impl, move(cb_)});
+}
+
+Backend::Backend(shared_ptr<BackendImpl> impl)
+    : _impl(move(impl))
+{
+}
+
 Backend::Backend(asio::io_service& ios, const string& repo_path)
     : _impl(make_shared<BackendImpl>(ios))
 {
-    bool started = go_ipfs_cache_start((char*) repo_path.data());
+    int ec = go_ipfs_cache_start((char*) repo_path.data());
 
-    if (!started) {
+    if (ec != IPFS_SUCCESS) {
         throw std::runtime_error("Backend: Failed to start IPFS");
     }
 }
@@ -159,6 +180,8 @@ boost::asio::io_service& Backend::get_io_service()
 
 Backend::~Backend()
 {
+    if (!_impl) return; // Was moved from.
+
     lock_guard<mutex> guard(_impl->destruct_mutex);
     _impl->was_destroyed = true;
 

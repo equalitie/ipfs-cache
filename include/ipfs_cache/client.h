@@ -21,6 +21,15 @@ using Json = nlohmann::json;
 
 class Client {
 public:
+    static std::unique_ptr<Client> build( boost::asio::io_service&
+                                        , std::string ipns
+                                        , std::string path_to_repo
+                                        , std::function<void()>& cancel
+                                        , boost::asio::yield_context);
+
+    // This constructor may do repository initialization disk IO and as such
+    // may block for a second or more. If that is undesirable, use the above
+    // static async `build` function instead.
     Client(boost::asio::io_service&, std::string ipns, std::string path_to_repo);
 
     Client(const Client&) = delete;
@@ -50,6 +59,9 @@ public:
     const Json& json_db() const;
 
     ~Client();
+
+private:
+    Client(Backend, std::string ipns, std::string path_to_repo);
 
 private:
     std::string _path_to_repo;

@@ -29,10 +29,21 @@ class Backend {
     using Result = typename asio::async_result<Handler<Token, Ret...>>;
 
 public:
+    // This constructor may do repository initialization disk IO and as such
+    // may block for a second or more. If that is undesired, use the static
+    // async `Backend::build` function instead.
     Backend(boost::asio::io_service&, const std::string& repo_path);
+
+    Backend(Backend&&) = default;
+    Backend& operator=(Backend&&) = default;
 
     Backend(const Backend&) = delete;
     Backend& operator=(const Backend&) = delete;
+
+    template<class Token>
+    static
+    typename Result<Token, std::unique_ptr<Backend>>::type
+    build(boost::asio::io_service&, const std::string& repo_path, Token&&);
 
     // Returns the IPNS CID of the database.
     std::string ipns_id() const;
@@ -62,6 +73,15 @@ public:
     ~Backend();
 
 private:
+    Backend(std::shared_ptr<BackendImpl>);
+
+private:
+    static
+    void build_( boost::asio::io_service& ios
+               , const std::string& repo_path
+               , std::function<void( const boost::system::error_code&
+                                   , std::unique_ptr<Backend>)>);
+
     void add_( const uint8_t* data, size_t size
              , std::function<void(boost::system::error_code, std::string)>);
 
@@ -77,6 +97,19 @@ private:
 private:
     std::shared_ptr<BackendImpl> _impl;
 };
+
+template<class Token>
+typename Backend::Result<Token, std::unique_ptr<Backend>>::type
+Backend::build( boost::asio::io_service& ios
+              , const std::string& repo_path
+              , Token&& token)
+{
+    using BackendP = std::unique_ptr<Backend>;
+    Handler<Token, BackendP> handler(std::forward<Token>(token));
+    Result<Token, BackendP> result(handler);
+    build_(ios, repo_path, std::move(handler));
+    return result.get();
+}
 
 template<class Token>
 typename Backend::Result<Token, std::string>::type

@@ -35,6 +35,8 @@ namespace ipfs_cache { namespace error {
                     return "success";
                 case IPFS_RESOLVE_FAILED:
                     return "failed to resolve IPNS entry";
+                case IPFS_FAILED_TO_CREATE_REPO:
+                    return "failed to create IPFS repository";
                 case IPFS_ADD_FAILED:
                     return "failed to add data";
                 case IPFS_CAT_FAILED:
