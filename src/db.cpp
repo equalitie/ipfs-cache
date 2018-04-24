@@ -159,7 +159,7 @@ void InjectorDb::continuously_upload_db(asio::yield_context yield)
 
         sys::error_code ec;
         _local_db["ts"] = now_as_string();
-        upload_database(_local_db, ec, yield);
+        upload_database(_local_db, ec, yield[ec]);
 
         if (*wd || ec) return;
 

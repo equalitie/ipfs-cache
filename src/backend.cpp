@@ -4,6 +4,7 @@
 #include <mutex>
 #include <experimental/tuple>
 #include <boost/intrusive/list.hpp>
+#include <boost/optional.hpp>
 
 #include "backend.h"
 
@@ -47,14 +48,14 @@ template<class... As>
 struct Handle : public HandleBase {
     shared_ptr<BackendImpl> impl;
     function<void(sys::error_code, As&&...)> cb;
-    asio::io_service::work work;
+    boost::optional<asio::io_service::work> work;
     tuple<sys::error_code, As...> args;
 
     Handle( shared_ptr<BackendImpl> impl_
           , function<void(sys::error_code, As&&...)> cb)
         : impl(move(impl_))
         , cb(move(cb))
-        , work(impl->ios)
+        , work(asio::io_service::work(impl->ios))
     {
         impl->handles.push_back(*this);
     }
@@ -92,6 +93,7 @@ struct Handle : public HandleBase {
     }
 
     void cancel() override {
+        work = boost::none;
         std::get<0>(args) = asio::error::operation_aborted;
 
         impl->ios.post([cb = move(cb), as = move(args)] () mutable {
