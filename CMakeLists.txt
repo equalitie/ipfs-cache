@@ -237,3 +237,6 @@ target_link_libraries(cache_injector ipfs-cache ipfs-bindings ${Boost_LIBRARIES}
 ################################################################################
 endif() # IPFS_CACHE_WITH_EXAMPLE_BINARIES
 ################################################################################
+# Tests
+add_subdirectory(test)
+################################################################################
