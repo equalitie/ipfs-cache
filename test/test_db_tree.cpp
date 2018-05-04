@@ -46,14 +46,42 @@ BOOST_AUTO_TEST_CASE(test_1)
 
     asio::spawn(ios, [&] (asio::yield_context yield) {
         sys::error_code ec;
-
         db.insert("key", "value", yield[ec]);
+        BOOST_REQUIRE(!ec);
+        string v = db.find("key", yield[ec]);
+        BOOST_REQUIRE(!ec);
+        BOOST_REQUIRE_EQUAL(v, "value");
+    });
 
-        cout << ">>> " << ec.message() << endl;
+    ios.run();
+}
 
-        string r = db.find("key", yield[ec]);
+BOOST_AUTO_TEST_CASE(test_2)
+{
+    MockIpfs mock_ipfs;
 
-        cout << ">>> " << ec.message() << " " << r << endl;
+    DbTree db(mock_ipfs.cat_operation(), mock_ipfs.add_operation());
+
+    asio::io_service ios;
+
+    set<string> inserted;
+
+    asio::spawn(ios, [&] (asio::yield_context yield) {
+        sys::error_code ec;
+
+        for (int i = 0; i < 100000; ++i) {
+            int k = rand();
+            stringstream ss;
+            ss << k;
+            db.insert(ss.str(), ss.str(), yield[ec]);
+            BOOST_REQUIRE(!ec);
+        }
+
+        for (auto& key : inserted) {
+            auto val = db.find(key, yield[ec]);
+            BOOST_REQUIRE(!ec);
+            BOOST_REQUIRE_EQUAL(key, val);
+        }
     });
 
     ios.run();
