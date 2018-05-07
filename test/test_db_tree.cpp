@@ -58,9 +58,11 @@ BOOST_AUTO_TEST_CASE(test_1)
 
 BOOST_AUTO_TEST_CASE(test_2)
 {
+    srand(time(NULL));
+
     MockIpfs mock_ipfs;
 
-    DbTree db(mock_ipfs.cat_operation(), mock_ipfs.add_operation());
+    DbTree db(mock_ipfs.cat_operation(), mock_ipfs.add_operation(), 256);
 
     asio::io_service ios;
 
@@ -69,13 +71,15 @@ BOOST_AUTO_TEST_CASE(test_2)
     asio::spawn(ios, [&] (asio::yield_context yield) {
         sys::error_code ec;
 
-        for (int i = 0; i < 100000; ++i) {
+        for (int i = 0; i < 10000; ++i) {
             int k = rand();
             stringstream ss;
             ss << k;
             db.insert(ss.str(), ss.str(), yield[ec]);
             BOOST_REQUIRE(!ec);
         }
+
+        BOOST_REQUIRE(db.check_invariants());
 
         for (auto& key : inserted) {
             auto val = db.find(key, yield[ec]);

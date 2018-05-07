@@ -15,7 +15,7 @@ public:
     using CatOp = std::function<Value(const Hash&,  asio::yield_context)>;
     using AddOp = std::function<Hash (const Value&, asio::yield_context)>;
 
-private:
+public:
     struct Node;
     struct NodeEntry;
 
@@ -25,10 +25,11 @@ public:
     Value find(const Key&, asio::yield_context);
     void insert(const Key&, Value, asio::yield_context);
 
-    ~DbTree();
+    bool check_invariants() const;
 
-private:
-    void rebalance();
+    void print(std::ostream&) const;
+
+    ~DbTree();
 
 private:
      CatOp _cat_op;
