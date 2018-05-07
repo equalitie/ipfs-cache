@@ -20,7 +20,7 @@ private:
     struct NodeEntry;
 
 public:
-    DbTree(CatOp, AddOp);
+    DbTree(CatOp, AddOp, size_t max_node_size = 512);
 
     Value find(const Key&, asio::yield_context);
     void insert(const Key&, Value, asio::yield_context);
@@ -33,6 +33,7 @@ private:
 private:
      CatOp _cat_op;
      AddOp _add_op;
+     size_t _max_node_size;
 
      std::unique_ptr<Node> _root;
 };

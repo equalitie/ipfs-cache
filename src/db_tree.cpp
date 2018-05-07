@@ -10,8 +10,6 @@ using Value = DbTree::Value;
 using Hash  = DbTree::Hash;
 using boost::optional;
 
-static const size_t MAX_NODE_SIZE = 1000;
-
 struct NodeId {
     explicit NodeId(Key&& k) : key(move(k)), is_inf(false) {}
     NodeId()                 :               is_inf(true)  {}
@@ -58,8 +56,8 @@ struct DbTree::NodeEntry {
     Value value;
     unique_ptr<DbTree::Node> child;
 
-    DbTree::Node* child_node() {
-        if (!child) child = make_unique<Node>();
+    DbTree::Node* child_node(size_t max_node_size) {
+        if (!child) child = make_unique<Node>(max_node_size);
         return child.get();
     }
 };
@@ -68,6 +66,10 @@ struct DbTree::Node {
     using Entries = map<NodeId, NodeEntry, NodeIdCompare>;
 
     Entries entries;
+    size_t max_node_size;
+
+    Node(size_t max_node_size)
+        : max_node_size(max_node_size) {}
 
     optional<Node> insert(const Key&, Value);
     Value find(const Key&, asio::yield_context);
@@ -114,7 +116,7 @@ DbTree::Node::insert(const Key& key, Value value)
         }
 
         auto& entry = i->second;
-        auto new_node = entry.child_node()->insert(key, move(value));
+        auto new_node = entry.child_node(max_node_size)->insert(key, move(value));
 
         if (new_node) {
             assert(new_node->entries.size() == 2);
@@ -139,15 +141,15 @@ DbTree::Node::insert(const Key& key, Value value)
 
 optional<DbTree::Node> DbTree::Node::split()
 {
-    if (entries.size() <= MAX_NODE_SIZE) {
+    if (entries.size() <= max_node_size) {
         return boost::none;
     }
 
     size_t median = entries.size() / 2;
     bool fill_left = true;
 
-    auto left_child = make_unique<Node>();
-    Node ret;
+    auto left_child = make_unique<Node>(max_node_size);
+    Node ret(max_node_size);
 
     while(!entries.empty()) {
         if (fill_left && median-- == 0) {
@@ -183,9 +185,10 @@ Value DbTree::Node::find(const Key& key, asio::yield_context yield)
     }
 }
 
-DbTree::DbTree(CatOp cat_op, AddOp add_op)
+DbTree::DbTree(CatOp cat_op, AddOp add_op, size_t max_node_size)
     : _cat_op(move(cat_op))
     , _add_op(move(add_op))
+    , _max_node_size(max_node_size)
 {}
 
 DbTree::Value DbTree::find(const Key& key, asio::yield_context yield)
@@ -210,7 +213,7 @@ void DbTree::insert( const Key& key
     auto hash = _add_op(value, yield[ec]);
     if (ec) { return or_throw(yield, ec); }
 
-    if (!_root) _root = make_unique<Node>();
+    if (!_root) _root = make_unique<Node>(_max_node_size);
 
     _root->insert(key, move(value));
 }
