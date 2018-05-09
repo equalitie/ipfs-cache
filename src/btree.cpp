@@ -1,14 +1,12 @@
-#include <boost/optional.hpp>
-#include "db_tree.h"
-#include "or_throw.h"
+#include "btree.h"
 #include <iostream>
+#include <map>
 
 using namespace std;
 using namespace ipfs_cache;
 
-using Key   = DbTree::Key;
-using Value = DbTree::Value;
-using Hash  = DbTree::Hash;
+using Key   = BTree::Key;
+using Value = BTree::Value;
 using boost::optional;
 
 struct NodeId {
@@ -58,22 +56,22 @@ struct NodeIdCompare {
     }
 };
 
-struct DbTree::NodeEntry {
+struct BTree::NodeEntry {
     Value value;
-    unique_ptr<DbTree::Node> child;
-    string child_ipfs;
+    unique_ptr<BTree::Node> child;
 
-    DbTree::Node* child_node(size_t max_node_size) {
+    BTree::Node* child_node(size_t max_node_size) {
         if (!child) child = make_unique<Node>(max_node_size);
         return child.get();
     }
 };
 
-using Entries = map<NodeId, DbTree::NodeEntry, NodeIdCompare>;
+using Entries = map<NodeId, BTree::NodeEntry, NodeIdCompare>;
 
-struct DbTree::Node {
+struct BTree::Node {
     Entries entries;
     size_t max_node_size;
+    string ipfs_hash;
 
     Node(size_t max_node_size)
         : max_node_size(max_node_size) {}
@@ -82,18 +80,51 @@ struct DbTree::Node {
     void print(ostream&, size_t depth) const;
 
     optional<Node> insert(const Key&, Value);
-    Value find(const Key&, asio::yield_context);
+    optional<Value> find(const Key&);
     optional<Node> split();
 
     size_t size() const;
     pair<size_t,size_t> min_max_depth() const;
     bool is_leaf() const;
 
+    void refresh_ipfs();
+
     Entries::iterator inf_entry();
     Entries::iterator lower_bound(const Key&);
 };
 
-static ostream& operator<<(ostream& os, const DbTree::Node&);
+//void BTree::Node::refresh_ipfs(asio::yield_context yield) {
+//    if (!ipfs_hash.empty()) {
+//        return;
+//    }
+//
+//    for (auto& e : entries) {
+//        if (e.second.child) {
+//            e.second.child->refresh_ipfs();
+//        }
+//    }
+//
+//    Json json;
+//
+//    for (auto& e : entries) {
+//        json[e.first.key]["data"] = e.second.value;
+//
+//        if (e.second.child) {
+//            json[e.first.key]["child"] = e.second.child->ipfs_hash;
+//        }
+//    }
+//
+//    auto dump = json.dump();
+//
+//    sys::error_code ec;
+//
+//    Hash hash = add_op(dump.data(), dump.size(), yield[ec]);
+//    if (ec) return or_throw(yield, ec);
+//
+//    ipfs_hash = move(hash);
+//}
+
+static ostream& operator<<(ostream& os, const BTree::Node&);
 static ostream& operator<<(ostream& os, const Entries& es)
 {
     os << "{";
@@ -108,19 +139,19 @@ static ostream& operator<<(ostream& os, const Entries& es)
     return os << "}";
 }
 
-static ostream& operator<<(ostream& os, const DbTree::Node& n)
+static ostream& operator<<(ostream& os, const BTree::Node& n)
 {
     return os << n.entries;
 }
 
-size_t DbTree::Node::size() const
+size_t BTree::Node::size() const
 {
     if (entries.empty()) return 0;
     if ((--entries.end())->first.is_inf) return entries.size() - 1;
     return entries.size();
 }
 
-bool DbTree::Node::is_leaf() const
+bool BTree::Node::is_leaf() const
 {
     for (auto& e: entries) {
         if (e.second.child) return false;
@@ -129,7 +160,7 @@ bool DbTree::Node::is_leaf() const
     return true;
 }
 
-Entries::iterator DbTree::Node::inf_entry()
+Entries::iterator BTree::Node::inf_entry()
 {
     if (entries.empty()) {
         return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
@@ -139,7 +170,7 @@ Entries::iterator DbTree::Node::inf_entry()
     return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
 }
 
-pair<size_t,size_t> DbTree::Node::min_max_depth() const
+pair<size_t,size_t> BTree::Node::min_max_depth() const
 {
     size_t min(1);
     size_t max(1);
@@ -164,15 +195,15 @@ pair<size_t,size_t> DbTree::Node::min_max_depth() const
 }
 
 // Return iterator with key greater or equal to the `key`
-Entries::iterator DbTree::Node::lower_bound(const Key& key)
+Entries::iterator BTree::Node::lower_bound(const Key& key)
 {
     auto i = entries.lower_bound(key);
     if (i != entries.end()) return i;
     return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
 }
 
-optional<DbTree::Node>
-DbTree::Node::insert(const Key& key, Value value)
+optional<BTree::Node>
+BTree::Node::insert(const Key& key, Value value)
 {
     if (!is_leaf()) {
 
@@ -210,7 +241,7 @@ DbTree::Node::insert(const Key& key, Value value)
     return split();
 }
 
-optional<DbTree::Node> DbTree::Node::split()
+optional<BTree::Node> BTree::Node::split()
 {
     if (size() <= max_node_size) {
         return boost::none;
@@ -245,7 +276,7 @@ optional<DbTree::Node> DbTree::Node::split()
     return ret;
 }
 
-Value DbTree::Node::find(const Key& key, asio::yield_context yield)
+optional<Value> BTree::Node::find(const Key& key)
 {
     auto i = lower_bound(key);
 
@@ -255,12 +286,12 @@ Value DbTree::Node::find(const Key& key, asio::yield_context yield)
         return i->second.value;
     }
     else {
-        if (!i->second.child) return or_throw<Value>(yield, asio::error::not_found);
-        return i->second.child->find(key, yield);
+        if (!i->second.child) return boost::none;
+        return i->second.child->find(key);
     }
 }
 
-bool DbTree::Node::check_invariants() const {
+bool BTree::Node::check_invariants() const {
     if (size() > max_node_size) {
         return false;
     }
@@ -290,7 +321,7 @@ bool DbTree::Node::check_invariants() const {
     return true;
 }
 
-void DbTree::Node::print(ostream& os, size_t depth) const
+void BTree::Node::print(ostream& os, size_t depth) const
 {
     string indent(2*depth, ' ');
 
@@ -303,40 +334,27 @@ void DbTree::Node::print(ostream& os, size_t depth) const
     }
 }
 
-void DbTree::print(std::ostream& os) const
+void BTree::print(std::ostream& os) const
 {
     if (!_root) { os << "{}"; return; }
     _root->print(os, 0);
 }
 
-DbTree::DbTree(CatOp cat_op, AddOp add_op, size_t max_node_size)
-    : _cat_op(move(cat_op))
-    , _add_op(move(add_op))
-    , _max_node_size(max_node_size)
+BTree::BTree(size_t max_node_size)
+    : _max_node_size(max_node_size)
 {}
 
-DbTree::Value DbTree::find(const Key& key, asio::yield_context yield)
+optional<BTree::Value> BTree::find(const Key& key)
 {
     if (!_root) {
-        return or_throw<Value>(yield, asio::error::not_found);
+        return boost::none;
     }
 
-    return _root->find(key, yield);
+    return _root->find(key);
 }
 
-void DbTree::insert( const Key& key
-                   , Value value
-                   , asio::yield_context yield)
+void BTree::insert(const Key& key, Value value)
 {
-    if (!_add_op) {
-        return or_throw(yield, asio::error::operation_not_supported);
-    }
-
-    sys::error_code ec;
-
-    auto hash = _add_op(value, yield[ec]);
-    if (ec) { return or_throw(yield, ec); }
-
     if (!_root) _root = make_unique<Node>(_max_node_size);
 
     auto n = _root->insert(key, move(value));
@@ -348,10 +366,10 @@ void DbTree::insert( const Key& key
     assert(_root->check_invariants());
 }
 
-bool DbTree::check_invariants() const
+bool BTree::check_invariants() const
 {
     if (!_root) return true;
     return _root->check_invariants();
 }
 
-DbTree::~DbTree() {}
+BTree::~BTree() {}
