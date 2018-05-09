@@ -48,17 +48,11 @@ struct NodeIdCompare {
 struct BTree::NodeEntry {
     Value value;
     unique_ptr<BTree::Node> child;
-
-    BTree::Node* child_node(size_t max_node_size) {
-        if (!child) child = make_unique<Node>(max_node_size);
-        return child.get();
-    }
 };
 
 using Entries = map<NodeId, BTree::NodeEntry, NodeIdCompare>;
 
-struct BTree::Node {
-    Entries entries;
+struct BTree::Node : public Entries {
     size_t max_node_size;
 
     Node(size_t max_node_size)
@@ -77,8 +71,8 @@ struct BTree::Node {
 
     void refresh_ipfs();
 
-    Entries::iterator inf_entry();
-    Entries::iterator lower_bound(const Key&);
+    iterator inf_entry();
+    iterator lower_bound(const Key&);
 };
 
 static ostream& operator<<(ostream& os, const BTree::Node&);
@@ -98,19 +92,19 @@ static ostream& operator<<(ostream& os, const Entries& es)
 
 static ostream& operator<<(ostream& os, const BTree::Node& n)
 {
-    return os << n.entries;
+    return os << static_cast<const Entries&>(n);
 }
 
 size_t BTree::Node::size() const
 {
-    if (entries.empty()) return 0;
-    if ((--entries.end())->first == boost::none) return entries.size() - 1;
-    return entries.size();
+    if (Entries::empty()) return 0;
+    if ((--Entries::end())->first == boost::none) return Entries::size() - 1;
+    return Entries::size();
 }
 
 bool BTree::Node::is_leaf() const
 {
-    for (auto& e: entries) {
+    for (auto& e: static_cast<const Entries&>(*this)) {
         if (e.second.child) return false;
     }
 
@@ -119,12 +113,12 @@ bool BTree::Node::is_leaf() const
 
 Entries::iterator BTree::Node::inf_entry()
 {
-    if (entries.empty()) {
-        return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
+    if (Entries::empty()) {
+        return Entries::insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
     }
-    auto i = --entries.end();
+    auto i = --Entries::end();
     if (i->first == boost::none) return i;
-    return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
+    return Entries::insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
 }
 
 pair<size_t,size_t> BTree::Node::min_max_depth() const
@@ -134,7 +128,7 @@ pair<size_t,size_t> BTree::Node::min_max_depth() const
 
     bool first = true;
 
-    for (auto& e : entries) {
+    for (auto& e : *this) {
         if (!e.second.child) continue;
         auto mm = e.second.child->min_max_depth();
         if (first) {
@@ -154,9 +148,9 @@ pair<size_t,size_t> BTree::Node::min_max_depth() const
 // Return iterator with key greater or equal to the `key`
 Entries::iterator BTree::Node::lower_bound(const Key& key)
 {
-    auto i = entries.lower_bound(key);
-    if (i != entries.end()) return i;
-    return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
+    auto i = Entries::lower_bound(key);
+    if (i != Entries::end()) return i;
+    return Entries::insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
 }
 
 optional<BTree::Node>
@@ -172,27 +166,27 @@ BTree::Node::insert(const Key& key, Value value)
         }
 
         auto& entry = i->second;
-        auto new_node = entry.child_node(max_node_size)->insert(key, move(value));
-
+        if (!entry.child) entry.child = make_unique<Node>(max_node_size);
+        auto new_node = entry.child->insert(key, move(value));
 
         if (new_node) {
-            assert(new_node->entries.size() == 2);
+            assert(new_node->Entries::size() == 2);
 
-            auto& k1 = new_node->entries.begin()->first;
-            auto& e1 = new_node->entries.begin()->second;
-            auto& e2 = (++new_node->entries.begin())->second;
+            auto& k1 = new_node->begin()->first;
+            auto& e1 = new_node->begin()->second;
+            auto& e2 = (++new_node->begin())->second;
 
-            auto j = entries.insert(make_pair(k1, std::move(e1))).first;
+            auto j = Entries::insert(make_pair(k1, std::move(e1))).first;
 
-            entry.child->entries.clear();
+            entry.child->Entries::clear();
 
-            for (auto& e : e2.child->entries) {
-                std::next(j)->second.child->entries.insert(std::move(e));
+            for (auto& e : *e2.child) {
+                std::next(j)->second.child->Entries::insert(std::move(e));
             }
         }
     }
     else {
-        entries[NodeId(string(key))] = NodeEntry{move(value), nullptr};
+        (*this)[NodeId(string(key))] = NodeEntry{move(value), nullptr};
     }
 
     return split();
@@ -210,24 +204,24 @@ optional<BTree::Node> BTree::Node::split()
     auto left_child = make_unique<Node>(max_node_size);
     Node ret(max_node_size);
 
-    while(!entries.empty()) {
+    while(!Entries::empty()) {
         if (fill_left && median-- == 0) {
-            auto& e = *entries.begin();
+            auto& e = *begin();
             left_child->inf_entry()->second.child = move(e.second.child);
             e.second.child = move(left_child);
-            ret.entries.insert(std::move(e));
+            ret.Entries::insert(std::move(e));
             fill_left = false;
         }
         else if (fill_left) {
-            left_child->entries.insert(std::move(*entries.begin()));
+            left_child->Entries::insert(std::move(*begin()));
         }
         else {
             auto& ch = ret.inf_entry()->second.child;
             if (!ch) { ch = make_unique<Node>(max_node_size); }
-            ch->entries.insert(std::move(*entries.begin()));
+            ch->Entries::insert(std::move(*begin()));
         }
 
-        entries.erase(entries.begin());
+        Entries::erase(begin());
     }
 
     return ret;
@@ -237,7 +231,7 @@ optional<Value> BTree::Node::find(const Key& key)
 {
     auto i = lower_bound(key);
 
-    assert(i != entries.end());
+    assert(i != Entries::end());
 
     if (i->first == key) {
         return i->second.value;
@@ -261,12 +255,12 @@ bool BTree::Node::check_invariants() const {
 
     auto is_less = NodeIdCompare();
 
-    for (auto& e : entries) {
+    for (auto& e : *this) {
         if (!e.second.child) {
             continue;
         }
 
-        for (auto& ee : e.second.child->entries) {
+        for (auto& ee : *e.second.child) {
             if (ee.first != boost::none && !is_less(ee.first, e.first)) {
                 return false;
             }
@@ -284,7 +278,7 @@ void BTree::Node::print(ostream& os, size_t depth) const
 {
     string indent(2*depth, ' ');
 
-    for (auto& e : entries) {
+    for (auto& e : *this) {
         os << indent << e.first << endl;
 
         if (e.second.child) {
