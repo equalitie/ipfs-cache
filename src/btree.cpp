@@ -9,38 +9,13 @@ using Key   = BTree::Key;
 using Value = BTree::Value;
 using boost::optional;
 
-struct NodeId {
-    explicit NodeId(Key&& k) : key(move(k)), is_inf(false) {}
-    NodeId()                 :               is_inf(true)  {}
-
-    Key key;
-    bool is_inf = false;
-
-    bool operator==(const Key& other_key) const {
-        if (is_inf) return false;
-        return key == other_key;
-    }
-
-    bool operator<(const NodeId& other) const {
-        if (is_inf) {
-            if (other.is_inf) return key < other.key;
-            return false;
-        }
-        else if (other.is_inf) {
-            return true;
-        }
-        return key < other.key;
-    }
-
-    bool operator<(const string& other) const {
-        if (is_inf) return false;
-        return key < other;
-    }
-};
+// boost::none represents the last entry in a node
+// (i.e. the entry which is "bigger" than any Key)
+using NodeId = boost::optional<Key>;
 
 ostream& operator<<(ostream& os, const NodeId& n) {
-    if (n.is_inf) return os << "INF";
-    return os << n.key;
+    if (n == boost::none) return os << "INF";
+    return os << *n;
 }
 
 struct NodeIdCompare {
@@ -48,11 +23,25 @@ struct NodeIdCompare {
     using is_transparent = void;
 
     bool operator()(const NodeId& n1, const NodeId& n2) const {
-        return n1 < n2;
+        using boost::none;
+
+        if (n1 == none) {
+            return false;
+        }
+        else if (n2 == none) {
+            return true;
+        }
+        return *n1 < *n2;
     }
 
     bool operator()(const NodeId& n, const string& s) const {
-        return n < s;
+        using boost::none;
+
+        if (n == none) {
+            return false;
+        }
+
+        return *n < s;
     }
 };
 
@@ -71,7 +60,6 @@ using Entries = map<NodeId, BTree::NodeEntry, NodeIdCompare>;
 struct BTree::Node {
     Entries entries;
     size_t max_node_size;
-    string ipfs_hash;
 
     Node(size_t max_node_size)
         : max_node_size(max_node_size) {}
@@ -92,37 +80,6 @@ struct BTree::Node {
     Entries::iterator inf_entry();
     Entries::iterator lower_bound(const Key&);
 };
-
-//void BTree::Node::refresh_ipfs(asio::yield_context yield) {
-//    if (!ipfs_hash.empty()) {
-//        return;
-//    }
-//
-//    for (auto& e : entries) {
-//        if (e.second.child) {
-//            e.second.child->refresh_ipfs();
-//        }
-//    }
-//
-//    Json json;
-//
-//    for (auto& e : entries) {
-//        json[e.first.key]["data"] = e.second.value;
-//
-//        if (e.second.child) {
-//            json[e.first.key]["child"] = e.second.child->ipfs_hash;
-//        }
-//    }
-//
-//    auto dump = json.dump();
-//
-//    sys::error_code ec;
-//
-//    Hash hash = add_op(dump.data(), dump.size(), yield[ec]);
-//    if (ec) return or_throw(yield, ec);
-//
-//    ipfs_hash = move(hash);
-//}
 
 static ostream& operator<<(ostream& os, const BTree::Node&);
 static ostream& operator<<(ostream& os, const Entries& es)
@@ -147,7 +104,7 @@ static ostream& operator<<(ostream& os, const BTree::Node& n)
 size_t BTree::Node::size() const
 {
     if (entries.empty()) return 0;
-    if ((--entries.end())->first.is_inf) return entries.size() - 1;
+    if ((--entries.end())->first == boost::none) return entries.size() - 1;
     return entries.size();
 }
 
@@ -166,7 +123,7 @@ Entries::iterator BTree::Node::inf_entry()
         return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
     }
     auto i = --entries.end();
-    if (i->first.is_inf) return i;
+    if (i->first == boost::none) return i;
     return entries.insert(make_pair(NodeId(), NodeEntry{{}, nullptr})).first;
 }
 
@@ -230,7 +187,7 @@ BTree::Node::insert(const Key& key, Value value)
             entry.child->entries.clear();
 
             for (auto& e : e2.child->entries) {
-                std::next(j)->second.child->entries.insert(move(e));
+                std::next(j)->second.child->entries.insert(std::move(e));
             }
         }
     }
@@ -258,16 +215,16 @@ optional<BTree::Node> BTree::Node::split()
             auto& e = *entries.begin();
             left_child->inf_entry()->second.child = move(e.second.child);
             e.second.child = move(left_child);
-            ret.entries.insert(move(e));
+            ret.entries.insert(std::move(e));
             fill_left = false;
         }
         else if (fill_left) {
-            left_child->entries.insert(move(*entries.begin()));
+            left_child->entries.insert(std::move(*entries.begin()));
         }
         else {
             auto& ch = ret.inf_entry()->second.child;
             if (!ch) { ch = make_unique<Node>(max_node_size); }
-            ch->entries.insert(move(*entries.begin()));
+            ch->entries.insert(std::move(*entries.begin()));
         }
 
         entries.erase(entries.begin());
@@ -302,13 +259,15 @@ bool BTree::Node::check_invariants() const {
         return false;
     }
 
+    auto is_less = NodeIdCompare();
+
     for (auto& e : entries) {
         if (!e.second.child) {
             continue;
         }
 
         for (auto& ee : e.second.child->entries) {
-            if (!ee.first.is_inf && !(ee.first < e.first)) {
+            if (ee.first != boost::none && !is_less(ee.first, e.first)) {
                 return false;
             }
         }
