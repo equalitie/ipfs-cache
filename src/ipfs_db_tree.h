@@ -22,6 +22,8 @@ public:
     void insert(const Key&, Value, asio::yield_context);
     boost::optional<Value> find(const Key&, asio::yield_context);
 
+    ~IpfsDbTree();
+
 private:
     BTree _btree;
 
@@ -36,6 +38,7 @@ IpfsDbTree::IpfsDbTree(CatOp cat, AddOp add)
     : _btree(256)
     , _cat_op(std::move(cat))
     , _add_op(std::move(add))
+    , _was_destroyed(std::make_shared<bool>(false))
 {}
 
 inline
@@ -49,6 +52,12 @@ boost::optional<IpfsDbTree::Value>
 IpfsDbTree::find(const Key& key, asio::yield_context)
 {
     return _btree.find(key);
+}
+
+inline
+IpfsDbTree::~IpfsDbTree()
+{
+    *_was_destroyed = true;
 }
 
 } // namespace
