@@ -50,13 +50,13 @@ public:
         bool check_invariants() const;
 
         boost::optional<Node> insert(const Key&, Value, const OnNodeChange&);
-        boost::optional<Value> find(const Key&);
+        boost::optional<Value> find(const Key&) const;
         boost::optional<Node> split();
 
         size_t size() const;
         bool is_leaf() const;
 
-        typename Entries::iterator lower_bound(const Key&);
+        typename Entries::iterator find_or_create_lower_bound(const Key&);
 
         NodeData data;
 
@@ -79,7 +79,7 @@ public:
 public:
     BTree(size_t max_node_size = 512);
 
-    boost::optional<Value> find(const Key&);
+    boost::optional<Value> find(const Key&) const;
     void insert(const Key&, Value, const OnNodeChange& on_change = nullptr);
 
     bool check_invariants() const;
@@ -231,7 +231,7 @@ template<class NodeData>
 // Return iterator with key greater or equal to the `key`
 inline
 typename BTree<NodeData>::Entries::iterator
-BTree<NodeData>::Node::lower_bound(const Key& key)
+BTree<NodeData>::Node::find_or_create_lower_bound(const Key& key)
 {
     auto i = Entries::lower_bound(key);
     if (i != Entries::end()) return i;
@@ -249,7 +249,7 @@ BTree<NodeData>::Node::insert( const Key& key
 
     if (!is_leaf()) {
 
-        auto i = lower_bound(key);
+        auto i = find_or_create_lower_bound(key);
 
         if (i->first == key) {
             i->second.value = move(value);
@@ -323,11 +323,13 @@ boost::optional<typename BTree<NodeData>::Node> BTree<NodeData>::Node::split()
 template<class NodeData>
 inline
 boost::optional<typename BTree<NodeData>::Value>
-BTree<NodeData>::Node::find(const Key& key)
+BTree<NodeData>::Node::find(const Key& key) const
 {
-    auto i = lower_bound(key);
+    auto i = Entries::lower_bound(key);
 
-    assert(i != Entries::end());
+    if (i == Entries::end()) {
+        return boost::none;
+    }
 
     if (i->first == key) {
         return i->second.value;
@@ -384,7 +386,7 @@ BTree<NodeData>::BTree(size_t max_node_size)
 template<class NodeData>
 inline
 boost::optional<typename BTree<NodeData>::Value>
-BTree<NodeData>::find(const Key& key)
+BTree<NodeData>::find(const Key& key) const
 {
     if (!_root) {
         return boost::none;

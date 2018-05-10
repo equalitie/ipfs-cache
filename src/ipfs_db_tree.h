@@ -1,7 +1,8 @@
 #pragma once
 
-#include <json.hpp>
+#include "namespaces.h"
 #include "btree.h"
+#include <boost/asio/spawn.hpp>
 
 namespace ipfs_cache {
 
@@ -11,14 +12,13 @@ public:
         std::string ipfs_hash;
     };
 
-    using Key   = typename BTree<NodeData>::Key;
-    using Value = typename BTree<NodeData>::Value;
+    using Tree  = BTree<NodeData>;
+    using Key   = typename Tree::Key;
+    using Value = typename Tree::Value;
     using Hash  = std::string;
 
     using CatOp = std::function<Value(const Hash&,  asio::yield_context)>;
     using AddOp = std::function<Hash (const Value&, asio::yield_context)>;
-
-    //using Json = nlohman::json;
 
 public:
     IpfsDbTree(CatOp cat, AddOp add);
@@ -29,41 +29,15 @@ public:
     ~IpfsDbTree();
 
 private:
-    BTree<NodeData> _btree;
+    void update_ipfs(Tree::Node*, asio::yield_context);
+
+private:
+    Tree _btree;
 
     CatOp _cat_op;
     AddOp _add_op;
 
     std::shared_ptr<bool> _was_destroyed;
 };
-
-inline
-IpfsDbTree::IpfsDbTree(CatOp cat, AddOp add)
-    : _btree(256)
-    , _cat_op(std::move(cat))
-    , _add_op(std::move(add))
-    , _was_destroyed(std::make_shared<bool>(false))
-{}
-
-inline
-void IpfsDbTree::insert(const Key& key, Value value, asio::yield_context)
-{
-    _btree.insert(key, std::move(value), [] (BTree<NodeData>::Node& n) {
-            n.data.ipfs_hash.clear();
-        });
-}
-
-inline
-boost::optional<IpfsDbTree::Value>
-IpfsDbTree::find(const Key& key, asio::yield_context)
-{
-    return _btree.find(key);
-}
-
-inline
-IpfsDbTree::~IpfsDbTree()
-{
-    *_was_destroyed = true;
-}
 
 } // namespace
