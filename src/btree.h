@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
+#include <boost/asio/spawn.hpp>
 #include <memory>
 #include <map>
 #include <iostream>
@@ -11,8 +12,6 @@ namespace ipfs_cache {
 
 //--------------------------------------------------------------------
 //                       Node
-//        +--------------------------------+
-//        |            NodeData            |
 //        +--------------------------------|
 //        | Entry1 | Entry2 | ... | EntryN |
 //        +--------------------------------+
@@ -24,7 +23,12 @@ public:
 
     using Key   = std::string;
     using Value = std::string;
+    using Hash  = std::string;
+
     using OnNodeChange = std::function<void(Node&)>;
+
+    using CatOp = std::function<Value(const Hash&,  asio::yield_context)>;
+    using AddOp = std::function<Hash (const Value&, asio::yield_context)>;
 
 public:
     // boost::none represents the last entry in a node
@@ -70,6 +74,8 @@ public:
 
         std::pair<size_t,size_t> min_max_depth() const;
 
+        void insert_node(Node n);
+
         typename Entries::iterator inf_entry();
 
     private:
@@ -77,7 +83,7 @@ public:
     };
 
 public:
-    BTree(size_t max_node_size = 512);
+    BTree(CatOp = nullptr, AddOp = nullptr, size_t max_node_size = 512);
 
     boost::optional<Value> find(const Key&) const;
     void insert(const Key&, Value, const OnNodeChange& on_change = nullptr);
@@ -91,6 +97,9 @@ public:
 private:
      size_t _max_node_size;
      std::unique_ptr<Node> _root;
+
+     CatOp _cat_op;
+     AddOp _add_op;
 };
 
 //--------------------------------------------------------------------
@@ -133,6 +142,25 @@ static std::ostream& operator<<( std::ostream& os
 {
     return os << static_cast<const typename BTree<NodeData>::Entries&>(n);
 }
+
+//Json node_to_json(const Tree::Node& n)
+//{
+//    Json json;
+//
+//    for (auto& e : n) {
+//        const char* k = e.first ? e.first->c_str() : "";
+//
+//        json[k]["value"] = e.second.value;
+//
+//        if (e.second.child) {
+//            auto& ipfs_hash = e.second.child->data.ipfs_hash;
+//            assert(!ipfs_hash.empty());
+//            json[k]["child"] = ipfs_hash;
+//        }
+//    }
+//
+//    return json;
+//}
 
 //--------------------------------------------------------------------
 // NodeIdCompare
@@ -240,6 +268,27 @@ BTree<NodeData>::Node::find_or_create_lower_bound(const Key& key)
 
 template<class NodeData>
 inline
+void BTree<NodeData>::Node::insert_node(Node n)
+{
+    assert(n.Entries::size() == 2);
+    
+    auto& k1 = n.begin()->first;
+    auto& e1 = n.begin()->second;
+    auto& e2 = (++n.begin())->second;
+    
+    auto j = Entries::insert(make_pair(k1, std::move(e1))).first;
+    
+    assert(std::next(j) != Entries::end());
+    auto& entry = std::next(j)->second;
+    entry.child->Entries::clear();
+    
+    for (auto& e : *e2.child) {
+        std::next(j)->second.child->Entries::insert(std::move(e));
+    }
+}
+
+template<class NodeData>
+inline
 boost::optional<typename BTree<NodeData>::Node>
 BTree<NodeData>::Node::insert( const Key& key
                              , Value value
@@ -258,22 +307,11 @@ BTree<NodeData>::Node::insert( const Key& key
 
         auto& entry = i->second;
         if (!entry.child) entry.child.reset(new Node(max_node_size));
+
         auto new_node = entry.child->insert(key, move(value), on_change);
 
         if (new_node) {
-            assert(new_node->Entries::size() == 2);
-
-            auto& k1 = new_node->begin()->first;
-            auto& e1 = new_node->begin()->second;
-            auto& e2 = (++new_node->begin())->second;
-
-            auto j = Entries::insert(make_pair(k1, std::move(e1))).first;
-
-            entry.child->Entries::clear();
-
-            for (auto& e : *e2.child) {
-                std::next(j)->second.child->Entries::insert(std::move(e));
-            }
+            insert_node(std::move(*new_node));
         }
     }
     else {
@@ -379,8 +417,10 @@ bool BTree<NodeData>::Node::check_invariants() const {
 //
 template<class NodeData>
 inline
-BTree<NodeData>::BTree(size_t max_node_size)
+BTree<NodeData>::BTree(CatOp cat_op, AddOp add_op, size_t max_node_size)
     : _max_node_size(max_node_size)
+    , _cat_op(std::move(cat_op))
+    , _add_op(std::move(add_op))
 {}
 
 template<class NodeData>
@@ -423,5 +463,31 @@ bool BTree<NodeData>::check_invariants() const
 template<class NodeData>
 inline
 BTree<NodeData>::~BTree() {}
+
+//void BTree::update_ipfs(Tree::Node* n, asio::yield_context yield)
+//{
+//    if (!n) return;
+//    if (!n->data.ipfs_hash.empty()) return;
+//
+//    auto d = _was_destroyed;
+//
+//    for (auto& e : *n) {
+//        auto& ch = e.second.child;
+//        if (!ch) continue;
+//        sys::error_code ec;
+//        update_ipfs(ch.get(), yield[ec]);
+//        if (ec) return or_throw(yield, ec);
+//    }
+//
+//    Json json = node_to_json(*n);
+//
+//    sys::error_code ec;
+//    auto new_ipfs_hash = _add_op(json.dump(), yield[ec]);
+//
+//    if (!ec && *d) ec = asio::error::operation_aborted;
+//    if (ec) return or_throw(yield, ec);
+//
+//    n->data.ipfs_hash = move(new_ipfs_hash);
+//}
 
 } // namespace

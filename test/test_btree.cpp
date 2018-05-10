@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE(test_2)
 {
     srand(time(NULL));
 
-    BTree<NodeData> db(256);
+    BTree<NodeData> db(nullptr, nullptr, 256);
 
     set<string> inserted;
 

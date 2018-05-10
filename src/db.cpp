@@ -1,7 +1,7 @@
 #include "db.h"
 #include "backend.h"
 #include "republisher.h"
-#include "ipfs_db_tree.h"
+#include "btree.h"
 
 #include <boost/asio/io_service.hpp>
 
