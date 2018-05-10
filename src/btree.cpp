@@ -1,4 +1,6 @@
 #include "btree.h"
+#include "or_throw.h"
+#include <json.hpp>
 
 using namespace ipfs_cache;
 
@@ -6,6 +8,9 @@ using Key   = BTree::Key;
 using Value = BTree::Value;
 using Hash  = BTree::Hash;
 using Node  = BTree::Node;
+using AddOp = BTree::AddOp;
+
+using Json  = nlohmann::json;
 
 //--------------------------------------------------------------------
 //                       Node
@@ -14,8 +19,8 @@ using Node  = BTree::Node;
 //        +--------------------------------+
 //--------------------------------------------------------------------
 
-// boost::none represents the last entry in a node
-// (i.e. the entry which is "bigger" than any Key)
+// boost::none represents the last entry in a node' entries
+// (i.e. the entry with elements "bigger" than any Key)
 using NodeId = boost::optional<Key>;
 
 struct NodeIdCompare {
@@ -28,6 +33,7 @@ struct NodeIdCompare {
 struct Entry {
     Value value;
     std::unique_ptr<Node> child;
+    std::string child_hash;
 };
 
 using Entries = std::map<NodeId, Entry, NodeIdCompare>;
@@ -45,11 +51,12 @@ public:
 
     typename Entries::iterator find_or_create_lower_bound(const Key&);
 
+    Hash store(const AddOp&, asio::yield_context yield);
+
 private:
     friend class BTree;
 
-    Node(size_t max_node_size)
-        : max_node_size(max_node_size) {}
+    Node(BTree* tree) : _tree(tree) {}
 
     static std::pair<NodeId, Entry> make_inf_entry();
 
@@ -60,7 +67,7 @@ private:
     typename Entries::iterator inf_entry();
 
 private:
-    size_t max_node_size;
+    BTree* _tree;
 };
 
 //--------------------------------------------------------------------
@@ -71,8 +78,7 @@ std::ostream& operator<<(std::ostream& os, const NodeId& n) {
     return os << *n;
 }
 
-static std::ostream& operator<<(std::ostream& os
-                               , const BTree::Node&);
+static std::ostream& operator<<(std::ostream& os, const Node&);
 
 static std::ostream& operator<<(std::ostream& os, const Entries& es)
 {
@@ -88,30 +94,10 @@ static std::ostream& operator<<(std::ostream& os, const Entries& es)
     return os << "}";
 }
 
-static std::ostream& operator<<( std::ostream& os
-                               , const BTree::Node& n)
+static std::ostream& operator<<(std::ostream& os, const Node& n)
 {
     return os << static_cast<const Entries&>(n);
 }
-
-//Json node_to_json(const Tree::Node& n)
-//{
-//    Json json;
-//
-//    for (auto& e : n) {
-//        const char* k = e.first ? e.first->c_str() : "";
-//
-//        json[k]["value"] = e.second.value;
-//
-//        if (e.second.child) {
-//            auto& ipfs_hash = e.second.child->data.ipfs_hash;
-//            assert(!ipfs_hash.empty());
-//            json[k]["child"] = ipfs_hash;
-//        }
-//    }
-//
-//    return json;
-//}
 
 //--------------------------------------------------------------------
 // NodeIdCompare
@@ -132,14 +118,14 @@ NodeIdCompare::operator()(const NodeId& n, const std::string& s) const {
 //--------------------------------------------------------------------
 // Node
 //
-size_t BTree::Node::size() const
+size_t Node::size() const
 {
     if (Entries::empty()) return 0;
     if ((--Entries::end())->first == boost::none) return Entries::size() - 1;
     return Entries::size();
 }
 
-bool BTree::Node::is_leaf() const
+bool Node::is_leaf() const
 {
     for (auto& e: static_cast<const Entries&>(*this)) {
         if (e.second.child) return false;
@@ -149,12 +135,12 @@ bool BTree::Node::is_leaf() const
 }
 
 std::pair<NodeId, Entry>
-BTree::Node::make_inf_entry()
+Node::make_inf_entry()
 {
     return std::make_pair(NodeId(), Entry{{}, nullptr});
 }
 
-Entries::iterator BTree::Node::inf_entry()
+Entries::iterator Node::inf_entry()
 {
     if (Entries::empty()) {
         return Entries::insert(make_inf_entry()).first;
@@ -164,7 +150,7 @@ Entries::iterator BTree::Node::inf_entry()
     return Entries::insert(make_inf_entry()).first;
 }
 
-std::pair<size_t,size_t> BTree::Node::min_max_depth() const
+std::pair<size_t,size_t> Node::min_max_depth() const
 {
     size_t min(1);
     size_t max(1);
@@ -190,14 +176,14 @@ std::pair<size_t,size_t> BTree::Node::min_max_depth() const
 
 // Return iterator with key greater or equal to the `key`
 Entries::iterator
-BTree::Node::find_or_create_lower_bound(const Key& key)
+Node::find_or_create_lower_bound(const Key& key)
 {
     auto i = Entries::lower_bound(key);
     if (i != Entries::end()) return i;
     return Entries::insert(make_inf_entry()).first;
 }
 
-void BTree::Node::insert_node(Node n)
+void Node::insert_node(Node n)
 {
     assert(n.Entries::size() == 2);
     
@@ -216,13 +202,10 @@ void BTree::Node::insert_node(Node n)
     }
 }
 
-boost::optional<BTree::Node>
-BTree::Node::insert(const Key& key, Value value)
+boost::optional<Node>
+Node::insert(const Key& key, Value value)
 {
-    //auto on_exit = defer([&] { if (on_change) on_change(*this); });
-
     if (!is_leaf()) {
-
         auto i = find_or_create_lower_bound(key);
 
         if (i->first == key) {
@@ -231,32 +214,35 @@ BTree::Node::insert(const Key& key, Value value)
         }
 
         auto& entry = i->second;
-        if (!entry.child) entry.child.reset(new Node(max_node_size));
+        if (!entry.child) entry.child.reset(new Node(_tree));
 
         auto new_node = entry.child->insert(key, move(value));
+
+        // This will force hash recalculation when storing.
+        entry.child_hash.clear();
 
         if (new_node) {
             insert_node(std::move(*new_node));
         }
     }
     else {
-        (*this)[NodeId(key)] = Entry{move(value), nullptr};
+        (*this)[key] = Entry{move(value), nullptr};
     }
 
     return split();
 }
 
-boost::optional<BTree::Node> BTree::Node::split()
+boost::optional<Node> Node::split()
 {
-    if (size() <= max_node_size) {
+    if (size() <= _tree->_max_node_size) {
         return boost::none;
     }
 
     size_t median = size() / 2;
     bool fill_left = true;
 
-    std::unique_ptr<Node> left_child(new Node(max_node_size));
-    Node ret(max_node_size);
+    std::unique_ptr<Node> left_child(new Node(_tree));
+    Node ret(_tree);
 
     while(!Entries::empty()) {
         if (fill_left && median-- == 0) {
@@ -271,7 +257,7 @@ boost::optional<BTree::Node> BTree::Node::split()
         }
         else {
             auto& ch = ret.inf_entry()->second.child;
-            if (!ch) { ch.reset(new Node(max_node_size)); }
+            if (!ch) { ch.reset(new Node(_tree)); }
             ch->Entries::insert(std::move(*Entries::begin()));
         }
 
@@ -281,7 +267,7 @@ boost::optional<BTree::Node> BTree::Node::split()
     return ret;
 }
 
-boost::optional<BTree::Value> BTree::Node::find(const Key& key) const
+boost::optional<BTree::Value> Node::find(const Key& key) const
 {
     auto i = Entries::lower_bound(key);
 
@@ -298,8 +284,8 @@ boost::optional<BTree::Value> BTree::Node::find(const Key& key) const
     }
 }
 
-bool BTree::Node::check_invariants() const {
-    if (size() > max_node_size) {
+bool Node::check_invariants() const {
+    if (size() > _tree->_max_node_size) {
         return false;
     }
 
@@ -330,13 +316,50 @@ bool BTree::Node::check_invariants() const {
     return true;
 }
 
+Hash Node::store(const AddOp& add_op, asio::yield_context yield)
+{
+    if (!add_op) {
+        return or_throw<Hash>(yield, asio::error::operation_not_supported);
+    }
+
+    auto d = _tree->_was_destroyed;
+
+    Json json;
+
+    for (auto& p : *this) {
+        const char* k = p.first ? p.first->c_str() : "";
+        auto &e = p.second;
+
+        json[k]["value"] = e.value;
+
+        if (!e.child_hash.empty()) {
+            json[k]["child"] = e.child_hash;
+        }
+        else if (e.child) {
+            sys::error_code ec;
+
+            auto child_hash = e.child->store(add_op, yield[ec]);
+
+            if (!ec && *d) ec = asio::error::operation_aborted;
+            if (ec) return or_throw<Json>(yield, ec);
+
+            e.child_hash = std::move(child_hash);
+
+            json[k]["child"] = e.child_hash;
+        }
+    }
+
+    return add_op(json.dump(), yield);
+}
+
 //--------------------------------------------------------------------
 // BTree
 //
-BTree::BTree(CatOp cat_op, AddOp add_op, size_t max_node_size)
-    : _max_node_size(max_node_size)
+BTree::BTree(CatOp cat_op, AddOp add_op, size_t _max_node_size)
+    : _max_node_size(_max_node_size)
     , _cat_op(std::move(cat_op))
     , _add_op(std::move(add_op))
+    , _was_destroyed(std::make_shared<bool>(false))
 {}
 
 boost::optional<BTree::Value>
@@ -351,7 +374,7 @@ BTree::find(const Key& key) const
 
 void BTree::insert(const Key& key, Value value)
 {
-    if (!_root) _root.reset(new Node(_max_node_size));
+    if (!_root) _root.reset(new Node(this));
 
     auto n = _root->insert(key, move(value));
 
@@ -368,30 +391,7 @@ bool BTree::check_invariants() const
     return _root->check_invariants();
 }
 
-BTree::~BTree() {}
+BTree::~BTree() {
+    *_was_destroyed = true;
+}
 
-//void BTree::update_ipfs(Tree::Node* n, asio::yield_context yield)
-//{
-//    if (!n) return;
-//    if (!n->data.ipfs_hash.empty()) return;
-//
-//    auto d = _was_destroyed;
-//
-//    for (auto& e : *n) {
-//        auto& ch = e.second.child;
-//        if (!ch) continue;
-//        sys::error_code ec;
-//        update_ipfs(ch.get(), yield[ec]);
-//        if (ec) return or_throw(yield, ec);
-//    }
-//
-//    Json json = node_to_json(*n);
-//
-//    sys::error_code ec;
-//    auto new_ipfs_hash = _add_op(json.dump(), yield[ec]);
-//
-//    if (!ec && *d) ec = asio::error::operation_aborted;
-//    if (ec) return or_throw(yield, ec);
-//
-//    n->data.ipfs_hash = move(new_ipfs_hash);
-//}

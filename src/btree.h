@@ -22,7 +22,7 @@ public:
     using AddOp = std::function<Hash (const Value&, asio::yield_context)>;
 
 public:
-    struct Node;
+    struct Node; // public, but opaque
 
 public:
     BTree(CatOp = nullptr, AddOp = nullptr, size_t max_node_size = 512);
@@ -32,8 +32,6 @@ public:
 
     bool check_invariants() const;
 
-    Node* root() { return _root.get(); }
-
     ~BTree();
 
 private:
@@ -42,6 +40,8 @@ private:
 
      CatOp _cat_op;
      AddOp _add_op;
+
+     std::shared_ptr<bool> _was_destroyed;
 };
 
 
