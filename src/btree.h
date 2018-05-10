@@ -5,20 +5,31 @@
 #include <map>
 #include <iostream>
 #include "namespaces.h"
+#include "defer.h"
 
 namespace ipfs_cache {
 
+//--------------------------------------------------------------------
+//                       Node
+//        +--------------------------------+
+//        |            NodeData            |
+//        +--------------------------------|
+//        | Entry1 | Entry2 | ... | EntryN |
+//        +--------------------------------+
+//--------------------------------------------------------------------
+template<class NodeData>
 class BTree {
 public:
+    struct Node;
+
     using Key   = std::string;
     using Value = std::string;
+    using OnNodeChange = std::function<void(Node&)>;
 
 public:
     // boost::none represents the last entry in a node
     // (i.e. the entry which is "bigger" than any Key)
     using NodeId = boost::optional<Key>;
-
-    struct Node;
 
     struct NodeIdCompare {
         // https://www.fluentcpp.com/2017/06/09/search-set-another-type-key/
@@ -27,33 +38,39 @@ public:
         bool operator()(const NodeId& n, const std::string& s) const;
     };
 
-    struct NodeEntry {
+    struct Entry {
         Value value;
         std::unique_ptr<Node> child;
     };
 
-    using Entries = std::map<NodeId, NodeEntry, NodeIdCompare>;
+    using Entries = std::map<NodeId, Entry, NodeIdCompare>;
 
     struct Node : public Entries {
     public:
-        Node(size_t max_node_size)
-            : max_node_size(max_node_size) {}
-
         bool check_invariants() const;
 
-        boost::optional<Node> insert(const Key&, Value);
+        boost::optional<Node> insert(const Key&, Value, const OnNodeChange&);
         boost::optional<Value> find(const Key&);
         boost::optional<Node> split();
 
         size_t size() const;
-        std::pair<size_t,size_t> min_max_depth() const;
         bool is_leaf() const;
 
-        iterator inf_entry();
-        iterator lower_bound(const Key&);
+        typename Entries::iterator lower_bound(const Key&);
+
+        NodeData data;
 
     private:
-        static std::pair<NodeId, NodeEntry> make_inf_entry();
+        friend class BTree;
+
+        Node(size_t max_node_size)
+            : max_node_size(max_node_size) {}
+
+        static std::pair<NodeId, Entry> make_inf_entry();
+
+        std::pair<size_t,size_t> min_max_depth() const;
+
+        typename Entries::iterator inf_entry();
 
     private:
         size_t max_node_size;
@@ -63,9 +80,11 @@ public:
     BTree(size_t max_node_size = 512);
 
     boost::optional<Value> find(const Key&);
-    void insert(const Key&, Value);
+    void insert(const Key&, Value, const OnNodeChange& on_change = nullptr);
 
     bool check_invariants() const;
+
+    Node* root() { return _root.get(); }
 
     ~BTree();
 
@@ -77,17 +96,23 @@ private:
 //--------------------------------------------------------------------
 // IO
 //
+template<class NodeData>
 inline
-std::ostream& operator<<(std::ostream& os, const BTree::NodeId& n) {
+std::ostream& operator<<(std::ostream& os
+                        , const typename BTree<NodeData>::NodeId& n) {
     if (n == boost::none) return os << "INF";
     return os << *n;
 }
 
+template<class NodeData>
 inline
-static std::ostream& operator<<(std::ostream& os, const BTree::Node&);
+static std::ostream& operator<<(std::ostream& os
+                               , const typename BTree<NodeData>::Node&);
 
+template<class NodeData>
 inline
-static std::ostream& operator<<(std::ostream& os, const BTree::Entries& es)
+static std::ostream& operator<<(std::ostream& os
+                               , const typename BTree<NodeData>::Entries& es)
 {
     os << "{";
     for (auto i = es.begin(); i != es.end(); ++i) {
@@ -101,26 +126,32 @@ static std::ostream& operator<<(std::ostream& os, const BTree::Entries& es)
     return os << "}";
 }
 
+template<class NodeData>
 inline
-static std::ostream& operator<<(std::ostream& os, const BTree::Node& n)
+static std::ostream& operator<<( std::ostream& os
+                               , const typename BTree<NodeData>::Node& n)
 {
-    return os << static_cast<const BTree::Entries&>(n);
+    return os << static_cast<const typename BTree<NodeData>::Entries&>(n);
 }
 
 //--------------------------------------------------------------------
 // NodeIdCompare
 //
+template<class NodeData>
 inline
 bool
-BTree::NodeIdCompare::operator()(const NodeId& n1, const NodeId& n2) const {
+BTree<NodeData>::NodeIdCompare::operator()( const NodeId& n1
+                                          , const NodeId& n2) const {
     if (n1 == boost::none)      return false;
     else if (n2 == boost::none) return true;
     return *n1 < *n2;
 }
 
+template<class NodeData>
 inline
 bool
-BTree::NodeIdCompare::operator()(const NodeId& n, const std::string& s) const {
+BTree<NodeData>::NodeIdCompare::operator()( const NodeId& n
+                                          , const std::string& s) const {
     if (n == boost::none) return false;
     return *n < s;
 }
@@ -128,16 +159,18 @@ BTree::NodeIdCompare::operator()(const NodeId& n, const std::string& s) const {
 //--------------------------------------------------------------------
 // Node
 //
+template<class NodeData>
 inline
-size_t BTree::Node::size() const
+size_t BTree<NodeData>::Node::size() const
 {
     if (Entries::empty()) return 0;
     if ((--Entries::end())->first == boost::none) return Entries::size() - 1;
     return Entries::size();
 }
 
+template<class NodeData>
 inline
-bool BTree::Node::is_leaf() const
+bool BTree<NodeData>::Node::is_leaf() const
 {
     for (auto& e: static_cast<const Entries&>(*this)) {
         if (e.second.child) return false;
@@ -146,14 +179,19 @@ bool BTree::Node::is_leaf() const
     return true;
 }
 
+template<class NodeData>
 inline
-std::pair<BTree::NodeId, BTree::NodeEntry> BTree::Node::make_inf_entry()
+std::pair< typename BTree<NodeData>::NodeId
+         , typename BTree<NodeData>::Entry>
+BTree<NodeData>::Node::make_inf_entry()
 {
-    return std::make_pair(NodeId(), NodeEntry{{}, nullptr});
+    return std::make_pair(NodeId(), Entry{{}, nullptr});
 }
 
+template<class NodeData>
 inline
-BTree::Entries::iterator BTree::Node::inf_entry()
+typename BTree<NodeData>::Entries::iterator
+BTree<NodeData>::Node::inf_entry()
 {
     if (Entries::empty()) {
         return Entries::insert(make_inf_entry()).first;
@@ -163,8 +201,9 @@ BTree::Entries::iterator BTree::Node::inf_entry()
     return Entries::insert(make_inf_entry()).first;
 }
 
+template<class NodeData>
 inline
-std::pair<size_t,size_t> BTree::Node::min_max_depth() const
+std::pair<size_t,size_t> BTree<NodeData>::Node::min_max_depth() const
 {
     size_t min(1);
     size_t max(1);
@@ -188,19 +227,26 @@ std::pair<size_t,size_t> BTree::Node::min_max_depth() const
     return std::make_pair(min, max);
 }
 
+template<class NodeData>
 // Return iterator with key greater or equal to the `key`
 inline
-BTree::Entries::iterator BTree::Node::lower_bound(const Key& key)
+typename BTree<NodeData>::Entries::iterator
+BTree<NodeData>::Node::lower_bound(const Key& key)
 {
     auto i = Entries::lower_bound(key);
     if (i != Entries::end()) return i;
     return Entries::insert(make_inf_entry()).first;
 }
 
+template<class NodeData>
 inline
-boost::optional<BTree::Node>
-BTree::Node::insert(const Key& key, Value value)
+boost::optional<typename BTree<NodeData>::Node>
+BTree<NodeData>::Node::insert( const Key& key
+                             , Value value
+                             , const OnNodeChange& on_change)
 {
+    auto on_exit = defer([&] { if (on_change) on_change(*this); });
+
     if (!is_leaf()) {
 
         auto i = lower_bound(key);
@@ -211,8 +257,8 @@ BTree::Node::insert(const Key& key, Value value)
         }
 
         auto& entry = i->second;
-        if (!entry.child) entry.child = std::make_unique<Node>(max_node_size);
-        auto new_node = entry.child->insert(key, move(value));
+        if (!entry.child) entry.child.reset(new Node(max_node_size));
+        auto new_node = entry.child->insert(key, move(value), on_change);
 
         if (new_node) {
             assert(new_node->Entries::size() == 2);
@@ -231,14 +277,15 @@ BTree::Node::insert(const Key& key, Value value)
         }
     }
     else {
-        (*this)[NodeId(key)] = NodeEntry{move(value), nullptr};
+        (*this)[NodeId(key)] = Entry{move(value), nullptr};
     }
 
     return split();
 }
 
+template<class NodeData>
 inline
-boost::optional<BTree::Node> BTree::Node::split()
+boost::optional<typename BTree<NodeData>::Node> BTree<NodeData>::Node::split()
 {
     if (size() <= max_node_size) {
         return boost::none;
@@ -247,34 +294,36 @@ boost::optional<BTree::Node> BTree::Node::split()
     size_t median = size() / 2;
     bool fill_left = true;
 
-    auto left_child = std::make_unique<Node>(max_node_size);
+    std::unique_ptr<Node> left_child(new Node(max_node_size));
     Node ret(max_node_size);
 
     while(!Entries::empty()) {
         if (fill_left && median-- == 0) {
-            auto& e = *begin();
+            auto& e = *Entries::begin();
             left_child->inf_entry()->second.child = move(e.second.child);
             e.second.child = move(left_child);
             ret.Entries::insert(std::move(e));
             fill_left = false;
         }
         else if (fill_left) {
-            left_child->Entries::insert(std::move(*begin()));
+            left_child->Entries::insert(std::move(*Entries::begin()));
         }
         else {
             auto& ch = ret.inf_entry()->second.child;
-            if (!ch) { ch = std::make_unique<Node>(max_node_size); }
-            ch->Entries::insert(std::move(*begin()));
+            if (!ch) { ch.reset(new Node(max_node_size)); }
+            ch->Entries::insert(std::move(*Entries::begin()));
         }
 
-        Entries::erase(begin());
+        Entries::erase(Entries::begin());
     }
 
     return ret;
 }
 
+template<class NodeData>
 inline
-boost::optional<BTree::Value> BTree::Node::find(const Key& key)
+boost::optional<typename BTree<NodeData>::Value>
+BTree<NodeData>::Node::find(const Key& key)
 {
     auto i = lower_bound(key);
 
@@ -289,8 +338,9 @@ boost::optional<BTree::Value> BTree::Node::find(const Key& key)
     }
 }
 
+template<class NodeData>
 inline
-bool BTree::Node::check_invariants() const {
+bool BTree<NodeData>::Node::check_invariants() const {
     if (size() > max_node_size) {
         return false;
     }
@@ -325,13 +375,16 @@ bool BTree::Node::check_invariants() const {
 //--------------------------------------------------------------------
 // BTree
 //
+template<class NodeData>
 inline
-BTree::BTree(size_t max_node_size)
+BTree<NodeData>::BTree(size_t max_node_size)
     : _max_node_size(max_node_size)
 {}
 
+template<class NodeData>
 inline
-boost::optional<BTree::Value> BTree::find(const Key& key)
+boost::optional<typename BTree<NodeData>::Value>
+BTree<NodeData>::find(const Key& key)
 {
     if (!_root) {
         return boost::none;
@@ -340,12 +393,15 @@ boost::optional<BTree::Value> BTree::find(const Key& key)
     return _root->find(key);
 }
 
+template<class NodeData>
 inline
-void BTree::insert(const Key& key, Value value)
+void BTree<NodeData>::insert( const Key& key
+                            , Value value
+                            , const OnNodeChange& on_change)
 {
-    if (!_root) _root = std::make_unique<Node>(_max_node_size);
+    if (!_root) _root.reset(new Node(_max_node_size));
 
-    auto n = _root->insert(key, move(value));
+    auto n = _root->insert(key, move(value), on_change);
 
     if (n) {
         *_root = move(*n);
@@ -354,14 +410,16 @@ void BTree::insert(const Key& key, Value value)
     assert(_root->check_invariants());
 }
 
+template<class NodeData>
 inline
-bool BTree::check_invariants() const
+bool BTree<NodeData>::check_invariants() const
 {
     if (!_root) return true;
     return _root->check_invariants();
 }
 
+template<class NodeData>
 inline
-BTree::~BTree() {}
+BTree<NodeData>::~BTree() {}
 
 } // namespace

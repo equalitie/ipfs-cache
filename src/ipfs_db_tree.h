@@ -7,8 +7,12 @@ namespace ipfs_cache {
 
 class IpfsDbTree {
 public:
-    using Key   = BTree::Key;
-    using Value = BTree::Value;
+    struct NodeData {
+        std::string ipfs_hash;
+    };
+
+    using Key   = typename BTree<NodeData>::Key;
+    using Value = typename BTree<NodeData>::Value;
     using Hash  = std::string;
 
     using CatOp = std::function<Value(const Hash&,  asio::yield_context)>;
@@ -25,7 +29,7 @@ public:
     ~IpfsDbTree();
 
 private:
-    BTree _btree;
+    BTree<NodeData> _btree;
 
     CatOp _cat_op;
     AddOp _add_op;
@@ -44,7 +48,9 @@ IpfsDbTree::IpfsDbTree(CatOp cat, AddOp add)
 inline
 void IpfsDbTree::insert(const Key& key, Value value, asio::yield_context)
 {
-    _btree.insert(key, std::move(value));
+    _btree.insert(key, std::move(value), [] (BTree<NodeData>::Node& n) {
+            n.data.ipfs_hash.clear();
+        });
 }
 
 inline
