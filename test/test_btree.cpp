@@ -13,11 +13,9 @@ using namespace ipfs_cache;
 
 using boost::optional;
 
-struct NodeData {};
-
 BOOST_AUTO_TEST_CASE(test_1)
 {
-    BTree<NodeData> db;
+    BTree db;
 
     db.insert("key", "value");
     optional<string> v = db.find("key");
@@ -29,7 +27,7 @@ BOOST_AUTO_TEST_CASE(test_2)
 {
     srand(time(NULL));
 
-    BTree<NodeData> db(nullptr, nullptr, 256);
+    BTree db(nullptr, nullptr, 256);
 
     set<string> inserted;
 
