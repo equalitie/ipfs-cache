@@ -16,11 +16,18 @@ using boost::optional;
 BOOST_AUTO_TEST_CASE(test_1)
 {
     BTree db;
+    
+    asio::io_service ios;
 
-    db.insert("key", "value");
-    optional<string> v = db.find("key");
-    BOOST_REQUIRE(v);
-    BOOST_REQUIRE_EQUAL(*v, "value");
+    asio::spawn(ios, [&](asio::yield_context yield) {
+        sys::error_code ec;
+        db.insert("key", "value", yield[ec]);
+        BOOST_REQUIRE(!ec);
+        optional<string> v = db.find("key");
+        BOOST_REQUIRE(v);
+        BOOST_REQUIRE_EQUAL(*v, "value");
+    });
+
 }
 
 BOOST_AUTO_TEST_CASE(test_2)
@@ -31,20 +38,29 @@ BOOST_AUTO_TEST_CASE(test_2)
 
     set<string> inserted;
 
-    for (int i = 0; i < 10000; ++i) {
-        int k = rand();
-        stringstream ss;
-        ss << k;
-        db.insert(ss.str(), ss.str());
-    }
+    asio::io_service ios;
 
-    BOOST_REQUIRE(db.check_invariants());
+    asio::spawn(ios, [&](asio::yield_context yield) {
+        sys::error_code ec;
 
-    for (auto& key : inserted) {
-        auto val = db.find(key);
-        BOOST_REQUIRE(val);
-        BOOST_REQUIRE_EQUAL(key, *val);
-    }
+        for (int i = 0; i < 10000; ++i) {
+            int k = rand();
+            stringstream ss;
+            ss << k;
+            db.insert(ss.str(), ss.str(), yield[ec]);
+            BOOST_REQUIRE(!ec);
+        }
+
+        BOOST_REQUIRE(db.check_invariants());
+
+        for (auto& key : inserted) {
+            auto val = db.find(key);
+            BOOST_REQUIRE(val);
+            BOOST_REQUIRE_EQUAL(key, *val);
+        }
+    });
+
+    ios.run();
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -42,7 +42,7 @@ struct BTree::Node : public Entries {
 public:
     bool check_invariants() const;
 
-    boost::optional<Node> insert(const Key&, Value);
+    boost::optional<Node> insert(Key, Value);
     boost::optional<Value> find(const Key&) const;
     boost::optional<Node> split();
 
@@ -191,7 +191,7 @@ void Node::insert_node(Node n)
     auto& e1 = n.begin()->second;
     auto& e2 = (++n.begin())->second;
     
-    auto j = Entries::insert(make_pair(k1, std::move(e1))).first;
+    auto j = Entries::insert(make_pair(std::move(k1), std::move(e1))).first;
     
     assert(std::next(j) != Entries::end());
     auto& entry = std::next(j)->second;
@@ -203,7 +203,7 @@ void Node::insert_node(Node n)
 }
 
 boost::optional<Node>
-Node::insert(const Key& key, Value value)
+Node::insert(Key key, Value value)
 {
     if (!is_leaf()) {
         auto i = find_or_create_lower_bound(key);
@@ -216,7 +216,7 @@ Node::insert(const Key& key, Value value)
         auto& entry = i->second;
         if (!entry.child) entry.child.reset(new Node(_tree));
 
-        auto new_node = entry.child->insert(key, move(value));
+        auto new_node = entry.child->insert(move(key), move(value));
 
         // This will force hash recalculation when storing.
         entry.child_hash.clear();
@@ -226,7 +226,7 @@ Node::insert(const Key& key, Value value)
         }
     }
     else {
-        (*this)[key] = Entry{move(value), nullptr};
+        Entries::insert(make_pair(move(key), Entry{move(value), nullptr}));
     }
 
     return split();
@@ -365,6 +365,12 @@ BTree::BTree(CatOp cat_op, AddOp add_op, size_t _max_node_size)
 boost::optional<BTree::Value>
 BTree::find(const Key& key) const
 {
+    auto i = _insert_buffer.find(key);
+
+    if (i != _insert_buffer.end()) {
+        return i->second;
+    }
+
     if (!_root) {
         return boost::none;
     }
@@ -372,7 +378,7 @@ BTree::find(const Key& key) const
     return _root->find(key);
 }
 
-void BTree::insert(const Key& key, Value value)
+void BTree::raw_insert(Key key, Value value)
 {
     if (!_root) _root.reset(new Node(this));
 
@@ -383,6 +389,45 @@ void BTree::insert(const Key& key, Value value)
     }
 
     assert(_root->check_invariants());
+}
+
+void BTree::insert(Key key, Value value, asio::yield_context yield)
+{
+    if (_is_inserting) {
+        _insert_buffer.insert(std::make_pair(key, std::move(value)));
+        return;
+    }
+
+    _is_inserting = true;
+    auto on_exit = defer([&] { _is_inserting = false; });
+
+    _insert_buffer.insert(make_pair(std::move(key), std::move(value)));
+
+    auto d = _was_destroyed;
+
+    sys::error_code ec;
+
+    while (!_insert_buffer.empty() && !ec)
+    {
+        auto buf = std::move(_insert_buffer);
+
+        for (auto& kv : buf) {
+            raw_insert(std::move(kv.first), std::move(kv.second));
+        }
+
+        if (_root && _add_op) {
+            Hash root_hash = _root->store(_add_op, yield[ec]);
+            if (!ec && *d) ec = asio::error::operation_aborted;
+            if (!ec) {
+                _root_hash = std::move(root_hash);
+            }
+        }
+        else {
+            _root_hash.clear();
+        }
+    }
+
+    return or_throw(yield, ec);
 }
 
 bool BTree::check_invariants() const
