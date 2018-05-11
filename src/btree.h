@@ -24,17 +24,27 @@ public:
 public:
     BTree(CatOp = nullptr, AddOp = nullptr, size_t max_node_size = 512);
 
-    boost::optional<Value> find(const Key&) const;
+    boost::optional<Value> find(const Key&, asio::yield_context);
     void insert(Key, Value, asio::yield_context);
 
     bool check_invariants() const;
 
     const std::string& root_hash() const { return _root_hash; }
 
+    void load(Hash);
+
     ~BTree();
+
+    void debug(bool v) { _debug = v; }
 
 private:
     void raw_insert(Key, Value);
+
+    boost::optional<Value> find( const Hash&
+                               , std::unique_ptr<Node>&
+                               , const Key&
+                               , const CatOp&
+                               , asio::yield_context);
 
 private:
     size_t _max_node_size;
@@ -47,6 +57,8 @@ private:
     AddOp _add_op;
 
     std::shared_ptr<bool> _was_destroyed;
+
+    bool _debug = false;
 };
 
 
