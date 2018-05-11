@@ -1,6 +1,7 @@
 #include "btree.h"
 #include "or_throw.h"
 #include <json.hpp>
+#include <iostream>
 
 using namespace ipfs_cache;
 
@@ -12,9 +13,11 @@ using AddOp = BTree::AddOp;
 
 using Json  = nlohmann::json;
 
+using std::cout;
+using std::endl;
 //--------------------------------------------------------------------
 //                       Node
-//        +--------------------------------|
+//        +--------------------------------+
 //        | Entry1 | Entry2 | ... | EntryN |
 //        +--------------------------------+
 //--------------------------------------------------------------------
@@ -41,9 +44,11 @@ using Entries = std::map<NodeId, Entry, NodeIdCompare>;
 struct BTree::Node : public Entries {
 public:
     bool check_invariants() const;
+    bool every_node_has_hash() const;
+    void assert_every_node_has_hash() const;
 
     boost::optional<Node> insert(Key, Value);
-    boost::optional<Value> find(const Key&) const;
+    boost::optional<Value> find(const Key&, const CatOp&, asio::yield_context);
     boost::optional<Node> split();
 
     size_t size() const;
@@ -51,7 +56,8 @@ public:
 
     typename Entries::iterator find_or_create_lower_bound(const Key&);
 
-    Hash store(const AddOp&, asio::yield_context yield);
+    Hash store(const AddOp&, asio::yield_context);
+    void restore(Hash, const CatOp&, asio::yield_context);
 
 private:
     friend class BTree;
@@ -65,6 +71,8 @@ private:
     void insert_node(Node n);
 
     typename Entries::iterator inf_entry();
+
+    bool debug() const { return _tree->_debug; }
 
 private:
     BTree* _tree;
@@ -85,8 +93,12 @@ static std::ostream& operator<<(std::ostream& os, const Entries& es)
     os << "{";
     for (auto i = es.begin(); i != es.end(); ++i) {
         os << i->first;
+        os << ":" << i->second.child_hash << ":";
         if (i->second.child) {
-            os << ":" << *i->second.child;
+            os << *i->second.child;
+        }
+        else {
+            os << "NUL";
         }
 
         if (std::next(i) != es.end()) os << " ";
@@ -226,7 +238,7 @@ Node::insert(Key key, Value value)
         }
     }
     else {
-        Entries::insert(make_pair(move(key), Entry{move(value), nullptr}));
+        Entries::insert(make_pair(move(key), Entry{move(value)}));
     }
 
     return split();
@@ -249,6 +261,7 @@ boost::optional<Node> Node::split()
             auto& e = *Entries::begin();
             left_child->inf_entry()->second.child = move(e.second.child);
             e.second.child = move(left_child);
+            e.second.child_hash.clear();
             ret.Entries::insert(std::move(e));
             fill_left = false;
         }
@@ -267,21 +280,71 @@ boost::optional<Node> Node::split()
     return ret;
 }
 
-boost::optional<BTree::Value> Node::find(const Key& key) const
+boost::optional<Value> Node::find( const Key& key
+                                 , const CatOp& cat_op
+                                 , asio::yield_context yield)
 {
+    if (debug()) cout << "Node::find key:" << key << " " << *this << endl;
     auto i = Entries::lower_bound(key);
 
     if (i == Entries::end()) {
+        if (debug()) cout << "  lower bound not found" << endl;
         return boost::none;
     }
 
+    auto& e = i->second;
+
     if (i->first == key) {
-        return i->second.value;
+        if (debug()) cout << "  found" << endl;
+
+        return e.value;
     }
     else {
-        if (!i->second.child) return boost::none;
-        return i->second.child->find(key);
+        if (debug()) cout << "  descending" << endl;
+
+        if (!e.child) {
+            if (debug()) cout << "    no child" << endl;
+
+            if (e.child_hash.empty()) {
+                if (debug()) cout << "    no hash" << endl;
+                return boost::none;
+            }
+
+            return _tree->find( e.child_hash
+                              , e.child
+                              , key
+                              , cat_op
+                              , yield);
+        }
+
+        return e.child->find(key, cat_op, yield);
     }
+}
+
+bool Node::every_node_has_hash() const
+{
+    for (auto& kv : *this) {
+        auto& e = kv.second;
+        if (e.child) {
+            if (e.child_hash.empty()) {
+                return false;
+            }
+        }
+    }
+
+    for (auto& kv : *this) {
+        auto& e = kv.second;
+        if (e.child && !e.child->every_node_has_hash()) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void Node::assert_every_node_has_hash() const
+{
+    assert(every_node_has_hash());
 }
 
 bool Node::check_invariants() const {
@@ -318,9 +381,7 @@ bool Node::check_invariants() const {
 
 Hash Node::store(const AddOp& add_op, asio::yield_context yield)
 {
-    if (!add_op) {
-        return or_throw<Hash>(yield, asio::error::operation_not_supported);
-    }
+    assert(add_op);
 
     auto d = _tree->_was_destroyed;
 
@@ -330,7 +391,9 @@ Hash Node::store(const AddOp& add_op, asio::yield_context yield)
         const char* k = p.first ? p.first->c_str() : "";
         auto &e = p.second;
 
-        json[k]["value"] = e.value;
+        if (p.first) {
+            json[k]["value"] = e.value;
+        }
 
         if (!e.child_hash.empty()) {
             json[k]["child"] = e.child_hash;
@@ -349,7 +412,56 @@ Hash Node::store(const AddOp& add_op, asio::yield_context yield)
         }
     }
 
+    assert_every_node_has_hash();
     return add_op(json.dump(), yield);
+}
+
+void Node::restore(Hash hash, const CatOp& cat_op, asio::yield_context yield)
+{
+    auto d = _tree->_was_destroyed;
+
+    sys::error_code ec;
+    std::string data = cat_op(hash, yield[ec]);
+
+    if (!ec && *d) ec = asio::error::operation_aborted;
+    if (ec) return or_throw(yield, ec);
+
+    try {
+        auto json = Json::parse(data);
+
+        Entries::clear();
+
+        for (auto i = json.begin(); i != json.end(); ++i) {
+            Json v = i.value();
+
+            std::string child_hash;
+
+            auto child_i = v.find("child");
+
+            if (child_i != v.end()) {
+                child_hash = move(child_i.value());
+            }
+
+            boost::optional<std::string> key;
+           
+            if (!i.key().empty()) {
+                key = i.key();
+            }
+
+            std::string value;
+
+            if (v["value"].is_string()) {
+                value = move(v["value"]);
+            }
+            Entries::insert(make_pair( key
+                                     , Entry{ move(value)
+                                            , nullptr
+                                            , move(child_hash) }));
+        }
+    }
+    catch(const std::exception& e) {
+        return or_throw(yield, asio::error::bad_descriptor);
+    }
 }
 
 //--------------------------------------------------------------------
@@ -362,8 +474,37 @@ BTree::BTree(CatOp cat_op, AddOp add_op, size_t _max_node_size)
     , _was_destroyed(std::make_shared<bool>(false))
 {}
 
-boost::optional<BTree::Value>
-BTree::find(const Key& key) const
+boost::optional<Value>
+BTree::find( const Hash& hash
+           , std::unique_ptr<Node>& n
+           , const Key& key
+           , const CatOp& cat_op
+           , asio::yield_context yield)
+{
+    if (_debug) cout << "BTree::find hash:" << hash << " key:" << key << endl;
+
+    if (!n) {
+        if (hash.empty()) {
+            return boost::none;
+        }
+        else {
+            n.reset(new Node(this));
+
+            auto d = _was_destroyed;
+
+            sys::error_code ec;
+            n->restore(hash, cat_op, yield[ec]);
+
+            if (!ec && *d) ec = asio::error::operation_aborted;
+            if (ec) return or_throw(yield, ec, boost::none);
+        }
+    }
+
+    return n->find(key, cat_op, yield);
+}
+
+boost::optional<Value>
+BTree::find(const Key& key, asio::yield_context yield)
 {
     auto i = _insert_buffer.find(key);
 
@@ -371,11 +512,7 @@ BTree::find(const Key& key) const
         return i->second;
     }
 
-    if (!_root) {
-        return boost::none;
-    }
-
-    return _root->find(key);
+    return find(_root_hash, _root, key, CatOp(_cat_op), yield);
 }
 
 void BTree::raw_insert(Key key, Value value)
@@ -415,19 +552,27 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
             raw_insert(std::move(kv.first), std::move(kv.second));
         }
 
+        _root_hash.clear();
+
         if (_root && _add_op) {
-            Hash root_hash = _root->store(_add_op, yield[ec]);
+            // We must use a copy of _add_op to handle the case where `this`
+            // get's destroyed while the store operation is running.
+            Hash root_hash = _root->store(AddOp(_add_op), yield[ec]);
             if (!ec && *d) ec = asio::error::operation_aborted;
             if (!ec) {
                 _root_hash = std::move(root_hash);
+                _root->assert_every_node_has_hash();
             }
-        }
-        else {
-            _root_hash.clear();
         }
     }
 
     return or_throw(yield, ec);
+}
+
+void BTree::load(Hash hash) {
+    _root = nullptr;
+    _insert_buffer.clear();
+    _root_hash = move(hash);
 }
 
 bool BTree::check_invariants() const
