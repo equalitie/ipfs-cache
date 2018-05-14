@@ -19,6 +19,7 @@ import (
 	repo "github.com/ipfs/go-ipfs/repo"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	config "github.com/ipfs/go-ipfs/repo/config"
+	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/core/coreunix"
 
@@ -331,6 +332,28 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 		defer C.free(cdata)
 
 		C.execute_data_cb(fn, C.IPFS_SUCCESS, cdata, C.size_t(len(bytes)), fn_arg)
+	}()
+}
+
+//export go_ipfs_cache_unpin
+func go_ipfs_cache_unpin(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	cid := C.GoString(c_cid)
+
+	go func() {
+		if debug {
+			fmt.Println("go_ipfs_cache_unpin start");
+			defer fmt.Println("go_ipfs_cache_unpin end");
+		}
+
+		_, err := corerepo.Unpin(g.node, g.ctx, []string{cid}, true)
+
+		if err != nil {
+			fmt.Println("go_ipfs_cache_unpin failed to unpin");
+			C.execute_void_cb(fn, C.IPFS_UNPIN_FAILED, fn_arg)
+			return
+		}
+
+		C.execute_void_cb(fn, C.IPFS_SUCCESS, fn_arg)
 	}()
 }
 

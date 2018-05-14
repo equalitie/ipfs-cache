@@ -45,6 +45,8 @@ namespace ipfs_cache { namespace error {
                     return "failed to read data";
                 case IPFS_PUBLISH_FAILED:
                     return "failed to publish CID";
+                case IPFS_UNPIN_FAILED:
+                    return "failed to unpin";
                 default:
                     return "unknown ipfs error";
             }

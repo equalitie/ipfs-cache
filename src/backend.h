@@ -68,6 +68,10 @@ public:
     typename Result<Token, std::string>::type
     resolve(const std::string& ipns_id, Token&&);
 
+    template<class Token>
+    void
+    unpin( const std::string& cid, Token&&);
+
     boost::asio::io_service& get_io_service();
 
     ~Backend();
@@ -93,6 +97,9 @@ private:
 
     void resolve_( const std::string& ipns_id
                  , std::function<void(boost::system::error_code, std::string)>);
+
+    void unpin_( const std::string& cid
+               , std::function<void(boost::system::error_code)>);
 
 private:
     std::shared_ptr<BackendImpl> _impl;
@@ -160,6 +167,16 @@ Backend::resolve(const std::string& ipns_id, Token&& token)
     Handler<Token, std::string> handler(std::forward<Token>(token));
     Result<Token, std::string> result(handler);
     resolve_(ipns_id, std::move(handler));
+    return result.get();
+}
+
+template<class Token>
+void
+Backend::unpin(const std::string& cid, Token&& token)
+{
+    Handler<Token> handler(std::forward<Token>(token));
+    Result<Token> result(handler);
+    unpin_(cid, std::move(handler));
     return result.get();
 }
 
