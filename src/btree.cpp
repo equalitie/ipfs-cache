@@ -47,9 +47,9 @@ public:
     bool every_node_has_hash() const;
     void assert_every_node_has_hash() const;
 
-    boost::optional<Node> insert(Key, Value);
+    boost::optional<Node> insert(Key, Value, asio::yield_context);
     boost::optional<Value> find(const Key&, const CatOp&, asio::yield_context);
-    boost::optional<Node> split();
+    boost::optional<Node> split(std::shared_ptr<bool>&, asio::yield_context);
 
     size_t size() const;
     bool is_leaf() const;
@@ -58,6 +58,8 @@ public:
 
     Hash store(const AddOp&, asio::yield_context);
     void restore(Hash, const CatOp&, asio::yield_context);
+
+    size_t local_node_count() const;
 
 private:
     friend class BTree;
@@ -215,8 +217,11 @@ void Node::insert_node(Node n)
 }
 
 boost::optional<Node>
-Node::insert(Key key, Value value)
+Node::insert(Key key, Value value, asio::yield_context yield)
 {
+    sys::error_code ec;
+    auto d = _tree->_was_destroyed;
+
     if (!is_leaf()) {
         auto i = find_or_create_lower_bound(key);
 
@@ -228,10 +233,15 @@ Node::insert(Key key, Value value)
         auto& entry = i->second;
         if (!entry.child) entry.child.reset(new Node(_tree));
 
-        auto new_node = entry.child->insert(move(key), move(value));
+        auto new_node = entry.child->insert(move(key), move(value), yield[ec]);
 
-        // This will force hash recalculation when storing.
-        entry.child_hash.clear();
+        if (!ec && *d) ec = asio::error::operation_aborted;
+        if (ec) return or_throw(yield, ec, boost::none);
+
+        _tree->try_unpin(entry.child_hash, yield[ec]);
+
+        if (!ec && *d) ec = asio::error::operation_aborted;
+        if (ec) return or_throw(yield, ec, boost::none);
 
         if (new_node) {
             insert_node(std::move(*new_node));
@@ -241,10 +251,11 @@ Node::insert(Key key, Value value)
         Entries::insert(make_pair(move(key), Entry{move(value)}));
     }
 
-    return split();
+    return split(d, yield);
 }
 
-boost::optional<Node> Node::split()
+boost::optional<Node> Node::split( std::shared_ptr<bool>& was_destroyed
+                                 , asio::yield_context yield)
 {
     if (size() <= _tree->_max_node_size) {
         return boost::none;
@@ -261,7 +272,13 @@ boost::optional<Node> Node::split()
             auto& e = *Entries::begin();
             left_child->inf_entry()->second.child = move(e.second.child);
             e.second.child = move(left_child);
-            e.second.child_hash.clear();
+
+            sys::error_code ec;
+            _tree->try_unpin(e.second.child_hash, yield[ec]);
+
+            if (!ec && *was_destroyed) ec = asio::error::operation_aborted;
+            if (ec) return or_throw(yield, ec, boost::none);
+
             ret.Entries::insert(std::move(e));
             fill_left = false;
         }
@@ -464,13 +481,29 @@ void Node::restore(Hash hash, const CatOp& cat_op, asio::yield_context yield)
     }
 }
 
+size_t Node::local_node_count() const
+{
+    size_t result = 0;
+
+    for (auto& kv : *this) {
+        auto& e = kv.second;
+        if (e.child) result += e.child->local_node_count();
+    }
+
+    return result + 1;
+}
+
 //--------------------------------------------------------------------
 // BTree
 //
-BTree::BTree(CatOp cat_op, AddOp add_op, size_t _max_node_size)
+BTree::BTree( CatOp cat_op
+            , AddOp add_op
+            , UnpinOp unpin_op
+            , size_t _max_node_size)
     : _max_node_size(_max_node_size)
     , _cat_op(std::move(cat_op))
     , _add_op(std::move(add_op))
+    , _unpin_op(std::move(unpin_op))
     , _was_destroyed(std::make_shared<bool>(false))
 {}
 
@@ -515,11 +548,11 @@ BTree::find(const Key& key, asio::yield_context yield)
     return find(_root_hash, _root, key, CatOp(_cat_op), yield);
 }
 
-void BTree::raw_insert(Key key, Value value)
+void BTree::raw_insert(Key key, Value value, asio::yield_context yield)
 {
     if (!_root) _root.reset(new Node(this));
 
-    auto n = _root->insert(key, move(value));
+    auto n = _root->insert(key, move(value), yield);
 
     if (n) {
         *_root = move(*n);
@@ -549,30 +582,52 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
         auto buf = std::move(_insert_buffer);
 
         for (auto& kv : buf) {
-            raw_insert(std::move(kv.first), std::move(kv.second));
+            raw_insert(std::move(kv.first), std::move(kv.second), yield[ec]);
+
+            if (!ec && *d) ec = asio::error::operation_aborted;
+            if (ec) return or_throw(yield, ec);
         }
 
-        _root_hash.clear();
+        try_unpin(_root_hash, yield);
+
+        if (*d) return or_throw(yield, asio::error::operation_aborted);
 
         if (_root && _add_op) {
             // We must use a copy of _add_op to handle the case where `this`
             // get's destroyed while the store operation is running.
             Hash root_hash = _root->store(AddOp(_add_op), yield[ec]);
+
             if (!ec && *d) ec = asio::error::operation_aborted;
-            if (!ec) {
-                _root_hash = std::move(root_hash);
-                _root->assert_every_node_has_hash();
-            }
+            if (ec) return or_throw(yield, ec);
+
+            _root_hash = std::move(root_hash);
+            _root->assert_every_node_has_hash();
         }
     }
 
     return or_throw(yield, ec);
 }
 
-void BTree::load(Hash hash) {
+void BTree::load(Hash hash, asio::yield_context yield) {
+    auto d = _was_destroyed;
+
     _root = nullptr;
     _insert_buffer.clear();
+
+    try_unpin(_root_hash, yield);
+
+    if (*d) return or_throw(yield, asio::error::operation_aborted);
+
     _root_hash = move(hash);
+}
+
+void BTree::try_unpin(Hash& h, asio::yield_context yield)
+{
+    if (h.empty()) return;
+    auto h_ = std::move(h);
+    if (!_unpin_op) return;
+    sys::error_code ec; // Ignored
+    _unpin_op(h_, yield[ec]);
 }
 
 bool BTree::check_invariants() const
@@ -585,3 +640,8 @@ BTree::~BTree() {
     *_was_destroyed = true;
 }
 
+size_t BTree::local_node_count() const
+{
+    if (!_root) return 0;
+    return _root->local_node_count();
+}

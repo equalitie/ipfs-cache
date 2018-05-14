@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(test_2)
 {
     srand(time(NULL));
 
-    BTree db(nullptr, nullptr, 256);
+    BTree db(nullptr, nullptr, nullptr, 256);
 
     set<string> inserted;
 
@@ -92,6 +92,12 @@ struct MockStorage : public std::map<BTree::Hash, BTree::Value> {
         };
     }
 
+    BTree::UnpinOp unpin_op() {
+        return [this] (const BTree::Hash& h, asio::yield_context) {
+            Map::erase(h);
+        };
+    }
+
 private:
     size_t next_id = 0;;
 };
@@ -110,7 +116,7 @@ BOOST_AUTO_TEST_CASE(test_3)
 
     MockStorage storage;
 
-    BTree db(storage.cat_op(), storage.add_op(), 2);
+    BTree db(storage.cat_op(), storage.add_op(), storage.unpin_op(), 2);
 
     set<string> inserted;
 
@@ -132,6 +138,8 @@ BOOST_AUTO_TEST_CASE(test_3)
 
         BOOST_REQUIRE(db.check_invariants());
 
+        BOOST_REQUIRE_EQUAL(storage.size(), db.local_node_count());
+
         for (auto& key : inserted) {
             auto val = db.find(key, yield[ec]);
             BOOST_REQUIRE(!ec);
@@ -139,9 +147,10 @@ BOOST_AUTO_TEST_CASE(test_3)
             BOOST_REQUIRE_EQUAL("v" + key, *val);
         }
 
-        BTree db2(storage.cat_op(), storage.add_op(), 2);
+        BTree db2(storage.cat_op(), storage.add_op(), storage.unpin_op(), 2);
 
-        db2.load(db.root_hash());
+        db2.load(db.root_hash(), yield[ec]);
+        BOOST_REQUIRE(!ec);
 
         for (auto& key : inserted) {
             auto val = db2.find(key, yield[ec]);
