@@ -1,55 +1,43 @@
 #pragma once
 
 #include <ipfs_cache/cached_content.h>
+#include "or_throw.h"
 
 namespace ipfs_cache {
 
 template<class Db>
 inline
-void get_content( Db& db
-                , std::string url
-                , std::function<void(sys::error_code, CachedContent)> cb)
+CachedContent get_content(Db& db, std::string url, asio::yield_context yield)
 {
-    auto& ios = db.backend().get_io_service();
-
     sys::error_code ec;
 
-    CacheEntry entry = db.query(url, ec);
+    std::string raw_json = db.query(url, yield[ec]);
 
-    if (!ec && entry.ts.is_not_a_date_time()) {
+    std::string content_hash;
+    boost::posix_time::ptime ts;
+
+    std::cout << "get_content: " << raw_json << std::endl;
+
+    try {
+        auto json = Json::parse(raw_json);
+
+        ts           = boost::posix_time::from_iso_extended_string(json["ts"]);
+        content_hash = json["value"];
+    }
+    catch(const std::exception& e) {
+        std::cerr << "Problem parsing data from cache: " << e.what()
+                  << std::endl;
+
         ec = asio::error::not_found;
     }
 
     if (ec) {
-        return ios.post([cb = std::move(cb), ec] { cb(ec, CachedContent()); });
+        return or_throw<CachedContent>(yield, ec);
     }
 
-    db.backend().cat( entry.content_hash
-                    , [cb = std::move(cb), ts = entry.ts]
-                      (sys::error_code ecc, std::string s) {
-            if (ecc) {
-                return cb(ecc, CachedContent());
-            }
+    std::string s = db.backend().cat(content_hash, yield[ec]);
 
-            CachedContent cont({ts, s});
-            cb(ecc, std::move(cont));
-        });
-}
-
-template<class Db>
-inline
-CachedContent get_content(Db& db, std::string url, asio::yield_context yield)
-{
-    using handler_type = typename asio::handler_type
-                           < asio::yield_context
-                           , void(sys::error_code, CachedContent)>::type;
-
-    handler_type handler(yield);
-    asio::async_result<handler_type> result(handler);
-
-    get_content(db, std::move(url), handler);
-
-    return result.get();
+    return or_throw(yield, ec, CachedContent{ts, move(s)});
 }
 
 } // ipfs_cache namespace

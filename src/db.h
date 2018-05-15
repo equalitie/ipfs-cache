@@ -18,16 +18,10 @@ namespace boost { namespace asio {
 
 namespace ipfs_cache {
 
+class BTree;
 class Backend;
 class Republisher;
 using Json = nlohmann::json;
-
-struct CacheEntry {
-    // Entry time stamp, not a date/time for missing or invalid entries.
-    boost::posix_time::ptime ts;
-    // Entry value (IPFS content hash).
-    std::string content_hash;
-};
 
 class ClientDb {
     using OnDbUpdate = std::function<void(const sys::error_code&)>;
@@ -35,11 +29,10 @@ class ClientDb {
 public:
     ClientDb(Backend&, std::string path_to_repo, std::string ipns);
 
-    CacheEntry query(std::string key, sys::error_code& ec);
+    std::string query(std::string key, asio::yield_context);
 
     boost::asio::io_service& get_io_service();
 
-    const Json& json_db() const;
     const std::string& ipns() const { return _ipns; }
     const std::string& ipfs() const { return _ipfs; }
 
@@ -59,23 +52,22 @@ private:
 
 private:
     const std::string _path_to_repo;
-    Json _local_db;
     std::string _ipns;
     std::string _ipfs; // Last known
     Backend& _backend;
     std::shared_ptr<bool> _was_destroyed;
     asio::steady_timer _download_timer;
     std::queue<OnDbUpdate> _on_db_update_callbacks;
+    std::unique_ptr<BTree> _db_map;
 };
 
 class InjectorDb {
 public:
     InjectorDb(Backend&, std::string path_to_repo);
 
-    void update( std::string key, std::string content_hash
-               , std::function<void(sys::error_code)>);
+    void update(std::string key, std::string content_hash, asio::yield_context);
 
-    CacheEntry query(std::string key, sys::error_code& ec);
+    std::string query(std::string key, asio::yield_context);
 
     boost::asio::io_service& get_io_service();
 
@@ -86,18 +78,18 @@ public:
     ~InjectorDb();
 
 private:
-    std::string upload_database(const Json&, sys::error_code&, asio::yield_context);
+    void upload_database(asio::yield_context);
     void continuously_upload_db(asio::yield_context);
 
 private:
     const std::string _path_to_repo;
-    Json _local_db;
     std::string _ipns;
     Backend& _backend;
     std::unique_ptr<Republisher> _republisher;
     ConditionVariable _has_callbacks;
     std::list<std::function<void(sys::error_code)>> _upload_callbacks;
     std::shared_ptr<bool> _was_destroyed;
+    std::unique_ptr<BTree> _db_map;
 };
 
 } // ipfs_cache namespace

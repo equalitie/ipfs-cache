@@ -92,10 +92,10 @@ const string& Client::ipfs() const
     return _db->ipfs();
 }
 
-const Json& Client::json_db() const
-{
-    return _db->json_db();
-}
+//const Json& Client::json_db() const
+//{
+//    return _db->json_db();
+//}
 
 Client::Client(Client&& other)
     : _backend(move(other._backend))

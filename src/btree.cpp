@@ -609,6 +609,8 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
 }
 
 void BTree::load(Hash hash, asio::yield_context yield) {
+    if (_root_hash == hash) return;
+
     auto d = _was_destroyed;
 
     _root = nullptr;

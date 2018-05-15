@@ -29,6 +29,9 @@ class Backend {
     using Result = typename asio::async_result<Handler<Token, Ret...>>;
 
 public:
+    static const uint32_t CID_SIZE = 46;
+
+public:
     // This constructor may do repository initialization disk IO and as such
     // may block for a second or more. If that is undesired, use the static
     // async `Backend::build` function instead.

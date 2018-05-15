@@ -25,7 +25,8 @@ private:
     struct InsertEntry {
         std::string key;
         std::string value;
-        OnInsert    on_insert;
+        boost::posix_time::ptime ts;
+        OnInsert on_insert;
     };
 
 public:
@@ -72,6 +73,7 @@ private:
     std::queue<InsertEntry> _insert_queue;
     const unsigned int _concurrency = 8;
     unsigned int _job_count = 0;
+    std::shared_ptr<bool> _was_destroyed;
 };
 
 } // ipfs_cache namespace

@@ -12,10 +12,6 @@ using namespace ipfs_cache;
 using namespace std;
 namespace intr = boost::intrusive;
 
-namespace {
-    const uint32_t CID_SIZE = 46;
-}
-
 template<class F> struct Defer {
     F f;
     ~Defer() { f(); }
