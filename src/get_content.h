@@ -13,6 +13,10 @@ CachedContent get_content(Db& db, std::string url, asio::yield_context yield)
 
     std::string raw_json = db.query(url, yield[ec]);
 
+    if (ec) {
+        return or_throw<CachedContent>(yield, ec);
+    }
+
     std::string content_hash;
     boost::posix_time::ptime ts;
 
@@ -24,6 +28,7 @@ CachedContent get_content(Db& db, std::string url, asio::yield_context yield)
     }
     catch(const std::exception& e) {
         std::cerr << "Problem parsing data from cache: " << e.what()
+                  << std::endl << "  \"" << raw_json << "\""
                   << std::endl;
 
         ec = asio::error::not_found;
