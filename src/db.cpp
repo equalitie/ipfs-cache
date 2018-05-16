@@ -103,7 +103,8 @@ ClientDb::ClientDb(Backend& backend, string path_to_repo, string ipns)
     , _download_timer(_backend.get_io_service())
     , _db_map(make_unique<BTree>( make_cat_operation(backend)
                                 , make_add_operation(backend)
-                                , make_unpin_operation(backend)))
+                                , make_unpin_operation(backend)
+                                , BTREE_NODE_SIZE))
 {
     auto d = _was_destroyed;
 
@@ -124,7 +125,8 @@ InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
     , _was_destroyed(make_shared<bool>(false))
     , _db_map(make_unique<BTree>( make_cat_operation(backend)
                                 , make_add_operation(backend)
-                                , make_unpin_operation(backend)))
+                                , make_unpin_operation(backend)
+                                , BTREE_NODE_SIZE))
 {
     auto d = _was_destroyed;
 
