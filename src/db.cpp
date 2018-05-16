@@ -133,8 +133,6 @@ InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
     asio::spawn(get_io_service(), [=](asio::yield_context yield) {
             if (*d) return;
             load_db(*_db_map, _path_to_repo, _ipns, yield);
-            //if (*d) return;
-            //continuously_upload_db(yield);
         });
 }
 
@@ -164,11 +162,10 @@ void InjectorDb::upload_database(asio::yield_context yield)
         return;
     }
 
+    save_db(_path_to_repo, _ipns, db_ipfs_id);
+
     _republisher->publish(move(db_ipfs_id), yield);
 }
-
-
-//
 
 static string query_(string key, BTree& db, asio::yield_context yield)
 {

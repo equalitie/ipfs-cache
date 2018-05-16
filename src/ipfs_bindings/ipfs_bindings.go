@@ -348,7 +348,7 @@ func go_ipfs_cache_unpin(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer
 		_, err := corerepo.Unpin(g.node, g.ctx, []string{cid}, true)
 
 		if err != nil {
-			fmt.Println("go_ipfs_cache_unpin failed to unpin");
+			fmt.Printf("go_ipfs_cache_unpin failed to unpin %q\n", cid);
 			C.execute_void_cb(fn, C.IPFS_UNPIN_FAILED, fn_arg)
 			return
 		}
