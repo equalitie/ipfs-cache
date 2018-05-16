@@ -16,10 +16,11 @@ import (
 	"strings"
 	"io/ioutil"
 	core "github.com/ipfs/go-ipfs/core"
+	coreapi "github.com/ipfs/go-ipfs/core/coreapi"
+	coreiface "github.com/ipfs/go-ipfs/core/coreapi/interface"
 	repo "github.com/ipfs/go-ipfs/repo"
 	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	config "github.com/ipfs/go-ipfs/repo/config"
-	corerepo "github.com/ipfs/go-ipfs/core/corerepo"
 	path "github.com/ipfs/go-ipfs/path"
 	"github.com/ipfs/go-ipfs/core/coreunix"
 
@@ -141,6 +142,7 @@ func printSwarmAddrs(node *core.IpfsNode) {
 
 type Cache struct {
 	node *core.IpfsNode
+	api coreiface.CoreAPI
 	ctx context.Context
 	cancel context.CancelFunc
 }
@@ -169,6 +171,8 @@ func start_cache(repoRoot string) C.int {
 	g.node.SetLocal(false)
 
 	printSwarmAddrs(g.node)
+
+	g.api = coreapi.NewCoreAPI(g.node)
 
 	return C.IPFS_SUCCESS
 }
@@ -335,6 +339,36 @@ func go_ipfs_cache_cat(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) 
 	}()
 }
 
+//export go_ipfs_cache_pin
+func go_ipfs_cache_pin(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
+	cid := C.GoString(c_cid)
+
+	go func() {
+		if debug {
+			fmt.Println("go_ipfs_cache_pin start");
+			defer fmt.Println("go_ipfs_cache_pin end");
+		}
+
+		path, err := coreapi.ParsePath(cid)
+
+		if err != nil {
+			fmt.Printf("go_ipfs_cache_pin failed to unpin %q %q\n", cid, err)
+			C.execute_void_cb(fn, C.IPFS_PIN_FAILED, fn_arg)
+			return
+		}
+
+		err = g.api.Pin().Add(g.ctx, path)
+
+		if err != nil {
+			fmt.Printf("go_ipfs_cache_pin failed to unpin %q %q\n", cid, err)
+			C.execute_void_cb(fn, C.IPFS_PIN_FAILED, fn_arg)
+			return
+		}
+
+		C.execute_void_cb(fn, C.IPFS_SUCCESS, fn_arg)
+	}()
+}
+
 //export go_ipfs_cache_unpin
 func go_ipfs_cache_unpin(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer) {
 	cid := C.GoString(c_cid)
@@ -345,10 +379,18 @@ func go_ipfs_cache_unpin(c_cid *C.char, fn unsafe.Pointer, fn_arg unsafe.Pointer
 			defer fmt.Println("go_ipfs_cache_unpin end");
 		}
 
-		_, err := corerepo.Unpin(g.node, g.ctx, []string{cid}, true)
+		path, err := coreapi.ParsePath(cid)
 
 		if err != nil {
-			fmt.Printf("go_ipfs_cache_unpin failed to unpin %q\n", cid);
+			fmt.Printf("go_ipfs_cache_pin failed to unpin %q %q\n", cid, err)
+			C.execute_void_cb(fn, C.IPFS_PIN_FAILED, fn_arg)
+			return
+		}
+
+		err = g.api.Pin().Rm(g.ctx, path)
+
+		if err != nil {
+			fmt.Printf("go_ipfs_cache_unpin failed to unpin %q %q\n", cid, err);
 			C.execute_void_cb(fn, C.IPFS_UNPIN_FAILED, fn_arg)
 			return
 		}

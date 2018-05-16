@@ -12,6 +12,7 @@
 #define IPFS_CAT_FAILED              4  // failed to get data reader
 #define IPFS_READ_FAILED             5  // failed to read data
 #define IPFS_PUBLISH_FAILED          6  // failed to publish CID
-#define IPFS_UNPIN_FAILED            7  // failed to publish CID
+#define IPFS_PIN_FAILED              7  // failed to publish CID
+#define IPFS_UNPIN_FAILED            8  // failed to publish CID
 
 #endif  // ndef GUARD_ipfs_error_codes_h

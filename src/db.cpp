@@ -26,7 +26,14 @@ static BTree::CatOp make_cat_operation(Backend& backend)
 static BTree::AddOp make_add_operation(Backend& backend)
 {
     return [&backend] (const BTree::Value& value, asio::yield_context yield) {
-        auto ret = backend.add(value, yield);
+        sys::error_code ec;
+
+        auto ret = backend.add(value, yield[ec]);
+        if (ec) return or_throw(yield, ec, move(ret));
+
+        backend.pin(ret, yield[ec]);
+        if (ec) return or_throw(yield, ec, move(ret));
+
         return ret;
     };
 }

@@ -171,6 +171,15 @@ void Backend::cat_(const string& ipfs_id, function<void(sys::error_code, string)
                      , (void*) new Handle<string>{_impl, move(cb)} );
 }
 
+void Backend::pin_(const string& cid, std::function<void(sys::error_code)> cb)
+{
+    assert(cid.size() == CID_SIZE);
+
+    go_ipfs_cache_pin( (char*) cid.data()
+                     , (void*) Handle<>::call_void
+                     , (void*) new Handle<>{_impl, move(cb)});
+}
+
 void Backend::unpin_(const string& cid, std::function<void(sys::error_code)> cb)
 {
     assert(cid.size() == CID_SIZE);
