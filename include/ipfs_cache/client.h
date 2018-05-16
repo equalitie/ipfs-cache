@@ -56,7 +56,6 @@ public:
 
     const std::string& ipns() const;
     const std::string& ipfs() const;
-    //const Json& json_db() const;
 
     ~Client();
 

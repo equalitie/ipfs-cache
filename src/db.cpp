@@ -204,7 +204,10 @@ void ClientDb::continuously_download_db(asio::yield_context yield)
         if (*d) return;
 
         if (!ec) {
+            _ipfs = ipfs_id;
+
             _db_map->load(ipfs_id, yield[ec]);
+
             if (*d) return;
         }
 
