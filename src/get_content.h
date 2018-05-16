@@ -16,8 +16,6 @@ CachedContent get_content(Db& db, std::string url, asio::yield_context yield)
     std::string content_hash;
     boost::posix_time::ptime ts;
 
-    std::cout << "get_content: " << raw_json << std::endl;
-
     try {
         auto json = Json::parse(raw_json);
 

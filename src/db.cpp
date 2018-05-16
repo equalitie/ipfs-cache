@@ -27,7 +27,6 @@ static BTree::AddOp make_add_operation(Backend& backend)
 {
     return [&backend] (const BTree::Value& value, asio::yield_context yield) {
         auto ret = backend.add(value, yield);
-        cout << "add: " << value << " -> " << ret << endl;
         return ret;
     };
 }
@@ -35,7 +34,6 @@ static BTree::AddOp make_add_operation(Backend& backend)
 static BTree::UnpinOp make_unpin_operation(Backend& backend)
 {
     return [&backend] (const BTree::Value& hash, asio::yield_context yield) {
-        cout << "Unpin: " << hash << endl;
         backend.unpin(hash, yield);
     };
 }

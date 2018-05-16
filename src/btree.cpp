@@ -301,29 +301,20 @@ boost::optional<Value> Node::find( const Key& key
                                  , const CatOp& cat_op
                                  , asio::yield_context yield)
 {
-    if (debug()) cout << "Node::find key:" << key << " " << *this << endl;
     auto i = Entries::lower_bound(key);
 
     if (i == Entries::end()) {
-        if (debug()) cout << "  lower bound not found" << endl;
         return boost::none;
     }
 
     auto& e = i->second;
 
     if (i->first == key) {
-        if (debug()) cout << "  found" << endl;
-
         return e.value;
     }
     else {
-        if (debug()) cout << "  descending" << endl;
-
         if (!e.child) {
-            if (debug()) cout << "    no child" << endl;
-
             if (e.child_hash.empty()) {
-                if (debug()) cout << "    no hash" << endl;
                 return boost::none;
             }
 
