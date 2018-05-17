@@ -38,7 +38,7 @@ static BTree::AddOp make_add_operation(Backend& backend)
     };
 }
 
-static BTree::UnpinOp make_unpin_operation(Backend& backend)
+static BTree::RemoveOp make_remove_operation(Backend& backend)
 {
     return [&backend] (const BTree::Value& hash, asio::yield_context yield) {
         backend.unpin(hash, yield);
@@ -109,8 +109,8 @@ ClientDb::ClientDb(Backend& backend, string path_to_repo, string ipns)
     , _was_destroyed(make_shared<bool>(false))
     , _download_timer(_backend.get_io_service())
     , _db_map(make_unique<BTree>( make_cat_operation(backend)
-                                , make_add_operation(backend)
-                                , make_unpin_operation(backend)
+                                , nullptr
+                                , nullptr
                                 , BTREE_NODE_SIZE))
 {
     auto d = _was_destroyed;
@@ -132,7 +132,7 @@ InjectorDb::InjectorDb(Backend& backend, string path_to_repo)
     , _was_destroyed(make_shared<bool>(false))
     , _db_map(make_unique<BTree>( make_cat_operation(backend)
                                 , make_add_operation(backend)
-                                , make_unpin_operation(backend)
+                                , make_remove_operation(backend)
                                 , BTREE_NODE_SIZE))
 {
     auto d = _was_destroyed;

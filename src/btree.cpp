@@ -238,7 +238,7 @@ Node::insert(Key key, Value value, asio::yield_context yield)
         if (!ec && *d) ec = asio::error::operation_aborted;
         if (ec) return or_throw(yield, ec, boost::none);
 
-        _tree->try_unpin(entry.child_hash, yield[ec]);
+        _tree->try_remove(entry.child_hash, yield[ec]);
 
         if (!ec && *d) ec = asio::error::operation_aborted;
         if (ec) return or_throw(yield, ec, boost::none);
@@ -274,7 +274,7 @@ boost::optional<Node> Node::split( std::shared_ptr<bool>& was_destroyed
             e.second.child = move(left_child);
 
             sys::error_code ec;
-            _tree->try_unpin(e.second.child_hash, yield[ec]);
+            _tree->try_remove(e.second.child_hash, yield[ec]);
 
             if (!ec && *was_destroyed) ec = asio::error::operation_aborted;
             if (ec) return or_throw(yield, ec, boost::none);
@@ -489,12 +489,12 @@ size_t Node::local_node_count() const
 //
 BTree::BTree( CatOp cat_op
             , AddOp add_op
-            , UnpinOp unpin_op
+            , RemoveOp remove_op
             , size_t _max_node_size)
     : _max_node_size(_max_node_size)
     , _cat_op(std::move(cat_op))
     , _add_op(std::move(add_op))
-    , _unpin_op(std::move(unpin_op))
+    , _remove_op(std::move(remove_op))
     , _was_destroyed(std::make_shared<bool>(false))
 {}
 
@@ -579,7 +579,7 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
             if (ec) return or_throw(yield, ec);
         }
 
-        try_unpin(_root_hash, yield);
+        try_remove(_root_hash, yield);
 
         if (*d) return or_throw(yield, asio::error::operation_aborted);
 
@@ -607,20 +607,20 @@ void BTree::load(Hash hash, asio::yield_context yield) {
     _root = nullptr;
     _insert_buffer.clear();
 
-    try_unpin(_root_hash, yield);
+    try_remove(_root_hash, yield);
 
     if (*d) return or_throw(yield, asio::error::operation_aborted);
 
     _root_hash = move(hash);
 }
 
-void BTree::try_unpin(Hash& h, asio::yield_context yield)
+void BTree::try_remove(Hash& h, asio::yield_context yield)
 {
     if (h.empty()) return;
     auto h_ = std::move(h);
-    if (!_unpin_op) return;
+    if (!_remove_op) return;
     sys::error_code ec; // Ignored
-    _unpin_op(h_, yield[ec]);
+    _remove_op(h_, yield[ec]);
 }
 
 bool BTree::check_invariants() const

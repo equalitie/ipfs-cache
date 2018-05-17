@@ -92,7 +92,7 @@ struct MockStorage : public std::map<BTree::Hash, BTree::Value> {
         };
     }
 
-    BTree::UnpinOp unpin_op() {
+    BTree::RemoveOp remove_op() {
         return [this] (const BTree::Hash& h, asio::yield_context) {
             Map::erase(h);
         };
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(test_3)
 
     MockStorage storage;
 
-    BTree db(storage.cat_op(), storage.add_op(), storage.unpin_op(), 2);
+    BTree db(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
 
     set<string> inserted;
 
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(test_3)
             BOOST_REQUIRE_EQUAL("v" + key, *val);
         }
 
-        BTree db2(storage.cat_op(), storage.add_op(), storage.unpin_op(), 2);
+        BTree db2(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
 
         db2.load(db.root_hash(), yield[ec]);
         BOOST_REQUIRE(!ec);
