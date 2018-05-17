@@ -318,11 +318,11 @@ boost::optional<Value> Node::find( const Key& key
                 return boost::none;
             }
 
-            return _tree->find( e.child_hash
-                              , e.child
-                              , key
-                              , cat_op
-                              , yield);
+            return _tree->lazy_find( e.child_hash
+                                   , e.child
+                                   , key
+                                   , cat_op
+                                   , yield);
         }
 
         return e.child->find(key, cat_op, yield);
@@ -499,14 +499,12 @@ BTree::BTree( CatOp cat_op
 {}
 
 boost::optional<Value>
-BTree::find( const Hash& hash
-           , std::unique_ptr<Node>& n
-           , const Key& key
-           , const CatOp& cat_op
-           , asio::yield_context yield)
+BTree::lazy_find( const Hash& hash
+                , std::unique_ptr<Node>& n
+                , const Key& key
+                , const CatOp& cat_op
+                , asio::yield_context yield)
 {
-    if (_debug) cout << "BTree::find hash:" << hash << " key:" << key << endl;
-
     if (!n) {
         if (hash.empty()) {
             return boost::none;
@@ -536,20 +534,23 @@ BTree::find(const Key& key, asio::yield_context yield)
         return i->second;
     }
 
-    return find(_root_hash, _root, key, CatOp(_cat_op), yield);
+    if (!_root) return boost::none;
+
+    return lazy_find(_root->hash, _root->node, key, CatOp(_cat_op), yield);
 }
 
 void BTree::raw_insert(Key key, Value value, asio::yield_context yield)
 {
-    if (!_root) _root.reset(new Node(this));
+    if (!_root) _root = std::make_shared<Root>();
+    if (!_root->node) _root->node.reset(new Node(this));
 
-    auto n = _root->insert(key, move(value), yield);
+    auto n = _root->node->insert(key, move(value), yield);
 
     if (n) {
-        *_root = move(*n);
+        *_root->node = move(*n);
     }
 
-    assert(_root->check_invariants());
+    assert(_root->node->check_invariants());
 }
 
 void BTree::insert(Key key, Value value, asio::yield_context yield)
@@ -579,20 +580,20 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
             if (ec) return or_throw(yield, ec);
         }
 
-        try_remove(_root_hash, yield);
+        if (_root) try_remove(_root->hash, yield);
 
         if (*d) return or_throw(yield, asio::error::operation_aborted);
 
-        if (_root && _add_op) {
+        if (_root && _root->node && _add_op) {
             // We must use a copy of _add_op to handle the case where `this`
             // get's destroyed while the store operation is running.
-            Hash root_hash = _root->store(AddOp(_add_op), yield[ec]);
+            Hash root_hash = _root->node->store(AddOp(_add_op), yield[ec]);
 
             if (!ec && *d) ec = asio::error::operation_aborted;
             if (ec) return or_throw(yield, ec);
 
-            _root_hash = std::move(root_hash);
-            _root->assert_every_node_has_hash();
+            _root->hash = std::move(root_hash);
+            _root->node->assert_every_node_has_hash();
         }
     }
 
@@ -600,18 +601,21 @@ void BTree::insert(Key key, Value value, asio::yield_context yield)
 }
 
 void BTree::load(Hash hash, asio::yield_context yield) {
-    if (_root_hash == hash) return;
+    if (_root && _root->hash == hash) return;
+
+    // TODO: Do we actually need/want to do this?
+    _insert_buffer.clear();
 
     auto d = _was_destroyed;
 
-    _root = nullptr;
-    _insert_buffer.clear();
+    auto old_root = std::move(_root);
 
-    try_remove(_root_hash, yield);
+    if (old_root) try_remove(old_root->hash, yield);
 
     if (*d) return or_throw(yield, asio::error::operation_aborted);
 
-    _root_hash = move(hash);
+    _root = std::make_shared<Root>();
+    _root->hash = move(hash);
 }
 
 void BTree::try_remove(Hash& h, asio::yield_context yield)
@@ -625,8 +629,8 @@ void BTree::try_remove(Hash& h, asio::yield_context yield)
 
 bool BTree::check_invariants() const
 {
-    if (!_root) return true;
-    return _root->check_invariants();
+    if (!_root || !_root->node) return true;
+    return _root->node->check_invariants();
 }
 
 BTree::~BTree() {
@@ -635,6 +639,6 @@ BTree::~BTree() {
 
 size_t BTree::local_node_count() const
 {
-    if (!_root) return 0;
-    return _root->local_node_count();
+    if (!_root || !_root->node) return 0;
+    return _root->node->local_node_count();
 }

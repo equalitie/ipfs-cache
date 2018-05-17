@@ -69,58 +69,78 @@ BOOST_AUTO_TEST_CASE(test_2)
     ios.run();
 }
 
+void random_wait( unsigned range
+                , asio::io_service& ios
+                , asio::yield_context yield)
+{
+    if (range == 0) return;
+    auto cnt = rand() % range;
+    for (unsigned i = 0; i < cnt; ++i) ios.post(yield);
+}
+
 struct MockStorage : public std::map<BTree::Hash, BTree::Value> {
     using Map = std::map<BTree::Hash, BTree::Value>;
 
+    MockStorage(asio::io_service& ios, unsigned async_deviation = 0)
+        : _ios(ios)
+        , _async_deviation(async_deviation) {}
+
     BTree::CatOp cat_op() {
         return [this] (BTree::Hash hash, asio::yield_context yield) {
+            random_wait(_async_deviation, _ios, yield);
+
             auto i = Map::find(hash);
             if (i == Map::end()) {
                 return or_throw<BTree::Value>(yield, asio::error::not_found);
             }
+
             return i->second;
         };
     }
 
     BTree::AddOp add_op() {
         return [this] (BTree::Value value , asio::yield_context yield) {
+            random_wait(_async_deviation, _ios, yield);
+
             std::stringstream ss;
             ss << next_id++;
             auto id = ss.str();
             Map::operator[](id) = std::move(value);
+
             return id;
         };
     }
 
     BTree::RemoveOp remove_op() {
-        return [this] (const BTree::Hash& h, asio::yield_context) {
+        return [this] (const BTree::Hash& h, asio::yield_context yield) {
+            random_wait(_async_deviation, _ios, yield);
             Map::erase(h);
         };
     }
 
 private:
     size_t next_id = 0;;
+    asio::io_service& _ios;
+    unsigned _async_deviation;
 };
 
-// It's easier to debug with fixed length digit string because of sorting (with
-// strings: "20" > "100")
-unsigned random_5_digit() {
-    unsigned k = 0;
-    while ((k % 100000) < 10000) { k = rand(); }
-    return k % 100000;
+string random_key(unsigned len) {
+    stringstream ss;
+    for (unsigned i = 0; i < len; ++i) ss << (i % 10);
+    return ss.str();
 }
 
 BOOST_AUTO_TEST_CASE(test_3)
 {
     srand(time(NULL));
 
-    MockStorage storage;
-
-    BTree db(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
-
     set<string> inserted;
 
     asio::io_service ios;
+
+    MockStorage storage(ios);
+
+    BTree db(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
 
     asio::spawn(ios, [&](asio::yield_context yield) {
         sys::error_code ec;
@@ -128,11 +148,9 @@ BOOST_AUTO_TEST_CASE(test_3)
         string root_hash;
 
         for (int i = 0; i < 100; ++i) {
-            int k = random_5_digit();
-            stringstream ss;
-            ss << k;
-            db.insert(ss.str(), "v" + ss.str(), yield[ec]);
-            inserted.insert(ss.str());
+            auto k = random_key(5);
+            db.insert(k, "v" + k, yield[ec]);
+            inserted.insert(k);
             BOOST_REQUIRE(!ec);
         }
 
@@ -157,6 +175,62 @@ BOOST_AUTO_TEST_CASE(test_3)
             BOOST_REQUIRE(!ec);
             BOOST_REQUIRE(val);
             BOOST_REQUIRE_EQUAL("v" + key, *val);
+        }
+    });
+
+    ios.run();
+}
+
+// Test that doing BTree::load while BTree::find doesn't crash the app.
+BOOST_AUTO_TEST_CASE(test_4)
+{
+    srand(time(NULL));
+
+    asio::io_service ios;
+
+    MockStorage storage(ios, 10);
+
+    BTree db1(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
+    BTree db2(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
+    BTree db3(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
+
+    auto fill_db = [&](BTree& db, asio::yield_context yield) {
+        for (int i = 0; i < 1000; ++i) {
+            auto k = random_key(3);
+            sys::error_code ec;
+            db.insert(k, "v" + k, yield[ec]);
+            BOOST_REQUIRE(!ec);
+        }
+    };
+
+    asio::spawn(ios, [&](asio::yield_context yield) {
+        sys::error_code ec;
+
+        fill_db(db2, yield);
+        fill_db(db3, yield);
+
+        db1.load(db2.root_hash(), yield);
+
+        auto done = false;
+
+        asio::spawn(ios, [&](asio::yield_context yield) {
+            for (int i = 0; i < 1000; ++i) {
+                sys::error_code ec; // Ignored
+                db1.find(random_key(3), yield[ec]);
+                ios.post(yield);
+            }
+            done = true;
+        });
+
+        while (!done) {
+            if (db1.root_hash() == db2.root_hash()) {
+                db1.load(db3.root_hash(), yield);
+                random_wait(5, ios, yield);
+            }
+            else {
+                db1.load(db2.root_hash(), yield);
+                random_wait(5, ios, yield);
+            }
         }
     });
 

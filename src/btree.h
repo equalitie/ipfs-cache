@@ -33,7 +33,10 @@ public:
 
     bool check_invariants() const;
 
-    const std::string& root_hash() const { return _root_hash; }
+    std::string root_hash() const {
+        if (!_root) return {};
+        return _root->hash;
+    }
 
     void load(Hash, asio::yield_context);
 
@@ -46,18 +49,24 @@ public:
 private:
     void raw_insert(Key, Value, asio::yield_context);
 
-    boost::optional<Value> find( const Hash&
-                               , std::unique_ptr<Node>&
-                               , const Key&
-                               , const CatOp&
-                               , asio::yield_context);
+    boost::optional<Value> lazy_find( const Hash&
+                                    , std::unique_ptr<Node>&
+                                    , const Key&
+                                    , const CatOp&
+                                    , asio::yield_context);
 
     void try_remove(Hash&, asio::yield_context);
 
 private:
     size_t _max_node_size;
-    std::unique_ptr<Node> _root;
-    std::string _root_hash;
+
+    struct Root {
+        std::unique_ptr<Node> node;
+        std::string hash;
+    };
+
+    std::shared_ptr<Root> _root;
+
     std::map<Key, Value> _insert_buffer;
     bool _is_inserting = false;
 
