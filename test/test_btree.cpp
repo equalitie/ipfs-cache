@@ -61,8 +61,7 @@ BOOST_AUTO_TEST_CASE(test_2)
         for (auto& key : inserted) {
             auto val = db.find(key, yield[ec]);
             BOOST_REQUIRE(!ec);
-            BOOST_REQUIRE(val);
-            BOOST_REQUIRE_EQUAL(key, *val);
+            BOOST_REQUIRE_EQUAL(key, val);
         }
     });
 
@@ -161,8 +160,7 @@ BOOST_AUTO_TEST_CASE(test_3)
         for (auto& key : inserted) {
             auto val = db.find(key, yield[ec]);
             BOOST_REQUIRE(!ec);
-            BOOST_REQUIRE(val);
-            BOOST_REQUIRE_EQUAL("v" + key, *val);
+            BOOST_REQUIRE_EQUAL("v" + key, val);
         }
 
         BTree db2(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
@@ -173,8 +171,7 @@ BOOST_AUTO_TEST_CASE(test_3)
         for (auto& key : inserted) {
             auto val = db2.find(key, yield[ec]);
             BOOST_REQUIRE(!ec);
-            BOOST_REQUIRE(val);
-            BOOST_REQUIRE_EQUAL("v" + key, *val);
+            BOOST_REQUIRE_EQUAL("v" + key, val);
         }
     });
 

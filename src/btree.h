@@ -28,7 +28,8 @@ public:
          , RemoveOp = nullptr
          , size_t max_node_size = 512);
 
-    boost::optional<Value> find(const Key&, asio::yield_context);
+    Value find(const Key&, asio::yield_context);
+
     void insert(Key, Value, asio::yield_context);
 
     bool check_invariants() const;
@@ -49,11 +50,11 @@ public:
 private:
     void raw_insert(Key, Value, asio::yield_context);
 
-    boost::optional<Value> lazy_find( const Hash&
-                                    , std::unique_ptr<Node>&
-                                    , const Key&
-                                    , const CatOp&
-                                    , asio::yield_context);
+    Value lazy_find( const Hash&
+                   , std::unique_ptr<Node>&
+                   , const Key&
+                   , const CatOp&
+                   , asio::yield_context);
 
     void try_remove(Hash&, asio::yield_context);
 

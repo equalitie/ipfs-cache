@@ -178,16 +178,11 @@ static string query_(string key, BTree& db, asio::yield_context yield)
 {
     sys::error_code ec;
 
-    auto opt_val = db.find(key, yield[ec]);
+    auto val = db.find(key, yield[ec]);
 
-    if (!ec && !opt_val) {
-        ec = asio::error::not_found;
-    }
-    if (ec) {
-        return or_throw<string>(yield, ec);
-    }
+    if (ec) return or_throw<string>(yield, ec);
 
-    return *opt_val;
+    return val;
 }
 
 string InjectorDb::query(string key, asio::yield_context yield)

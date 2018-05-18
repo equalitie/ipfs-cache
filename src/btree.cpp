@@ -48,7 +48,7 @@ public:
     void assert_every_node_has_hash() const;
 
     boost::optional<Node> insert(Key, Value, asio::yield_context);
-    boost::optional<Value> find(const Key&, const CatOp&, asio::yield_context);
+    Value find(const Key&, const CatOp&, asio::yield_context);
     boost::optional<Node> split(std::shared_ptr<bool>&, asio::yield_context);
 
     size_t size() const;
@@ -297,14 +297,14 @@ boost::optional<Node> Node::split( std::shared_ptr<bool>& was_destroyed
     return ret;
 }
 
-boost::optional<Value> Node::find( const Key& key
-                                 , const CatOp& cat_op
-                                 , asio::yield_context yield)
+Value Node::find( const Key& key
+                , const CatOp& cat_op
+                , asio::yield_context yield)
 {
     auto i = Entries::lower_bound(key);
 
     if (i == Entries::end()) {
-        return boost::none;
+        return or_throw<Value>(yield, asio::error::not_found);
     }
 
     auto& e = i->second;
@@ -315,7 +315,7 @@ boost::optional<Value> Node::find( const Key& key
     else {
         if (!e.child) {
             if (e.child_hash.empty()) {
-                return boost::none;
+                return or_throw<Value>(yield, asio::error::not_found);
             }
 
             return _tree->lazy_find( e.child_hash
@@ -498,7 +498,7 @@ BTree::BTree( CatOp cat_op
     , _was_destroyed(std::make_shared<bool>(false))
 {}
 
-boost::optional<Value>
+Value
 BTree::lazy_find( const Hash& hash
                 , std::unique_ptr<Node>& n
                 , const Key& key
@@ -507,7 +507,7 @@ BTree::lazy_find( const Hash& hash
 {
     if (!n) {
         if (hash.empty()) {
-            return boost::none;
+            return or_throw<Value>(yield, asio::error::not_found);
         }
         else {
             n.reset(new Node(this));
@@ -518,14 +518,14 @@ BTree::lazy_find( const Hash& hash
             n->restore(hash, cat_op, yield[ec]);
 
             if (!ec && *d) ec = asio::error::operation_aborted;
-            if (ec) return or_throw(yield, ec, boost::none);
+            if (ec) return or_throw<Value>(yield, ec);
         }
     }
 
     return n->find(key, cat_op, yield);
 }
 
-boost::optional<Value>
+Value
 BTree::find(const Key& key, asio::yield_context yield)
 {
     auto i = _insert_buffer.find(key);
@@ -534,7 +534,7 @@ BTree::find(const Key& key, asio::yield_context yield)
         return i->second;
     }
 
-    if (!_root) return boost::none;
+    if (!_root) return or_throw<Value>(yield, asio::error::not_found);
 
     return lazy_find(_root->hash, _root->node, key, CatOp(_cat_op), yield);
 }
