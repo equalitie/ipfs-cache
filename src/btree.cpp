@@ -536,7 +536,10 @@ BTree::find(const Key& key, asio::yield_context yield)
 
     if (!_root) return or_throw<Value>(yield, asio::error::not_found);
 
-    return lazy_find(_root->hash, _root->node, key, CatOp(_cat_op), yield);
+    // Copying `_root` into `root` prevents the _root->hash and _root->node
+    // from being destroyed in case the user calls BTree::load
+    auto root = _root;
+    return lazy_find(root->hash, root->node, key, CatOp(_cat_op), yield);
 }
 
 void BTree::raw_insert(Key key, Value value, asio::yield_context yield)
