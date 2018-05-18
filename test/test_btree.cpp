@@ -125,7 +125,7 @@ private:
 
 string random_key(unsigned len) {
     stringstream ss;
-    for (unsigned i = 0; i < len; ++i) ss << (i % 10);
+    for (unsigned i = 0; i < len; ++i) ss << (rand() % 10);
     return ss.str();
 }
 
@@ -187,13 +187,23 @@ BOOST_AUTO_TEST_CASE(test_4)
 
     MockStorage storage(ios, 10);
 
-    BTree db1(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
-    BTree db2(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
-    BTree db3(storage.cat_op(), storage.add_op(), storage.remove_op(), 2);
+    /* We can't let it remove items from MockStorage because MockStorage
+     * doesn't currently keep refcount per value */
+    BTree db1(storage.cat_op(), storage.add_op(), nullptr, 2);
+    BTree db2(storage.cat_op(), storage.add_op(), nullptr, 2);
+    BTree db3(storage.cat_op(), storage.add_op(), nullptr, 2);
+
+    auto int_to_string = [](int i) {
+        assert(i < 1000);
+        stringstream ss;
+        ss << i;
+        auto k = ss.str();
+        return string(3-k.size(), '0') + k;
+    };
 
     auto fill_db = [&](BTree& db, asio::yield_context yield) {
         for (int i = 0; i < 1000; ++i) {
-            auto k = random_key(3);
+            string k = int_to_string(i);
             sys::error_code ec;
             db.insert(k, "v" + k, yield[ec]);
             BOOST_REQUIRE(!ec);
@@ -212,22 +222,30 @@ BOOST_AUTO_TEST_CASE(test_4)
 
         asio::spawn(ios, [&](asio::yield_context yield) {
             for (int i = 0; i < 1000; ++i) {
-                sys::error_code ec; // Ignored
-                db1.find(random_key(3), yield[ec]);
+                sys::error_code ec;
+                auto k = random_key(3);
+                db1.find(k, yield[ec]);
+                BOOST_REQUIRE(!ec);
                 ios.post(yield);
             }
             done = true;
         });
 
+        // This was experimentally chosen so that a database is switched evenly
+        // during and between consecutive calls to BTree::find.
+        const unsigned WAIT_RANGE = 20;
+
+        // Note that we intentionally don't do the following DB switching in
+        // the above loop because we want them to happen *while db1.find is
+        // running* (not only before or after).
         while (!done) {
             if (db1.root_hash() == db2.root_hash()) {
                 db1.load(db3.root_hash(), yield);
-                random_wait(5, ios, yield);
             }
             else {
                 db1.load(db2.root_hash(), yield);
-                random_wait(5, ios, yield);
             }
+            random_wait(WAIT_RANGE, ios, yield);
         }
     });
 
