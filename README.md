@@ -4,6 +4,13 @@
 
 A C++ wrapper over go-ipfs to store key/value pairs in the IPFS network.
 
+# Archived
+
+This project has been split into two parts. The first part has moved into
+[Asio.IPFS](https://github.com/equalitie/asio-ipfs) project. It contains only
+the Boost.Asio based bindings to IPFS. The other part with the rest of the code
+has been moved into [Ouinet](https://github.com/equalitie/ouinet).
+
 ## Requirements
 
 To be able to use the IPFS Cache in platforms like Android, where running IPFS as an
